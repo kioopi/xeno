@@ -24,6 +24,8 @@ defmodule Notes.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import Notes.DataCase
+
+      import Notes.Generators
     end
   end
 
