@@ -39,18 +39,7 @@ defmodule Notes.Generators do
       Directory,
       :create,
       defaults: [
-        name: StreamData.member_of(example_dirs),
-        filename:
-          StreamData.member_of([
-            "documents",
-            "projects",
-            "notes",
-            "archive",
-            "personal",
-            "work",
-            "ideas",
-            "research"
-          ])
+        name: StreamData.member_of(example_dirs)
       ],
       overrides: opts
     )
