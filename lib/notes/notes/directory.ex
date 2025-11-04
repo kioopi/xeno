@@ -54,4 +54,8 @@ defmodule Notes.Notes.Directory do
       description "The parent directory of this directory, leave nil for root directories"
     end
   end
+
+  identities do
+    identity :unique_filename_per_parent, [:filename, :parent_id], nils_distinct?: false
+  end
 end
