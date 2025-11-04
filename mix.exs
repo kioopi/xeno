@@ -43,12 +43,8 @@ defmodule Notes.MixProject do
     [
       {:sourceror, "~> 1.8", only: [:dev, :test]},
       {:usage_rules, "~> 0.1", only: [:dev]},
-      {:ash_cloak, "~> 0.1"},
-      {:cloak, "~> 1.0"},
-      {:ash_paper_trail, "~> 0.5"},
       {:tidewave, "~> 0.5", only: [:dev]},
       {:live_debugger, "~> 0.4", only: [:dev]},
-      {:ash_archival, "~> 2.0"},
       {:ash_admin, "~> 0.13"},
       {:ash_postgres, "~> 2.0"},
       {:ash_phoenix, "~> 2.0"},
