@@ -49,7 +49,8 @@ config :spark,
 
 config :notes,
   ecto_repos: [Notes.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  ash_domains: [Notes.Notes]
 
 # Configures the endpoint
 config :notes, NotesWeb.Endpoint,
