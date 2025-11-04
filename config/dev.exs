@@ -3,10 +3,11 @@ config :ash, policies: [show_policy_breakdowns?: true]
 
 # Configure your database
 config :notes, Notes.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "notes_dev",
+  username: System.get_env("PG_USER") || "postgres",
+  password: System.get_env("PG_PASSWORD") || "postgres",
+  hostname: System.get_env("PG_HOST") || "localhost",
+  port: System.get_env("PG_PORT") || 5432,
+  database: System.get_env("PG_DATABASE") || "notes_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10

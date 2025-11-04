@@ -35,3 +35,6 @@ notes-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# environment of local dev machine
+.env
+/config/.env.exs
