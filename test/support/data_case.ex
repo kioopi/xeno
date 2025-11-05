@@ -30,6 +30,10 @@ defmodule Xeno.DataCase do
   end
 
   setup tags do
+    File.mkdir_p!(Xeno.notes_dir("fixtures/grandparent/parent/child"))
+    File.mkdir_p!(Xeno.notes_dir("test"))
+    File.rm_rf!(Xeno.notes_dir("test/*"))
+
     Xeno.DataCase.setup_sandbox(tags)
     :ok
   end

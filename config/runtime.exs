@@ -20,7 +20,23 @@ if System.get_env("PHX_SERVER") do
   config :xeno, XenoWeb.Endpoint, server: true
 end
 
+# function to read the notes_dir from Environment Variables or return default
+get_notes_directory = fn ->
+  System.get_env("NOTES_DIRECTORY") ||
+    case System.get_env("XDG_DATA_HOME") do
+      nil ->
+        home = System.get_env("HOME") || raise "HOME environment variable is not set"
+        Path.join([home, ".local", "share", "xeno", "notes"])
+
+      xdg_data_home ->
+        Path.join([xdg_data_home, "xeno", "notes"])
+    end
+end
+
 if config_env() == :prod do
+  # Configure notes directory
+  config :xeno, notes_directory: get_notes_directory.() |> File.mkdir_p()
+
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """

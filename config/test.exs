@@ -1,6 +1,9 @@
 import Config
 config :ash, policies: [show_policy_breakdowns?: true], disable_async?: true
 
+# Configure notes directory
+config :xeno, notes_directory: "test/notes/"
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used

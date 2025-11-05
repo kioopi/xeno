@@ -32,6 +32,8 @@ defmodule XenoWeb.ConnCase do
   end
 
   setup tags do
+    File.mkdir_p(Xeno.notes_dir("/fixtures/grandparent/parent/child"))
+
     Xeno.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
