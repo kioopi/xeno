@@ -1,9 +1,9 @@
-defmodule Notes.MixProject do
+defmodule Xeno.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :notes,
+      app: :xeno,
       version: "0.1.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -21,7 +21,7 @@ defmodule Notes.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {Notes.Application, []},
+      mod: {Xeno.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -92,10 +92,10 @@ defmodule Notes.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ash.setup --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind notes", "esbuild notes"],
+      "assets.build": ["compile", "tailwind xeno", "esbuild xeno"],
       "assets.deploy": [
-        "tailwind notes --minify",
-        "esbuild notes --minify",
+        "tailwind xeno --minify",
+        "esbuild xeno --minify",
         "phx.digest"
       ],
       precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]

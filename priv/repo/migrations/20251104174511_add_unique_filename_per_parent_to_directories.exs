@@ -1,4 +1,4 @@
-defmodule Notes.Repo.Migrations.AddUniqueFilenamePerParentToDirectories do
+defmodule Xeno.Repo.Migrations.AddUniqueFilenamePerParentToDirectories do
   @moduledoc """
   Updates resources based on their most recent snapshots.
 

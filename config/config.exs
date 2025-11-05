@@ -47,20 +47,20 @@ config :spark,
     ]
   ]
 
-config :notes,
-  ecto_repos: [Notes.Repo],
+config :xeno,
+  ecto_repos: [Xeno.Repo],
   generators: [timestamp_type: :utc_datetime],
-  ash_domains: [Notes.Notes]
+  ash_domains: [Xeno.Notes]
 
 # Configures the endpoint
-config :notes, NotesWeb.Endpoint,
+config :xeno, XenoWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: NotesWeb.ErrorHTML, json: NotesWeb.ErrorJSON],
+    formats: [html: XenoWeb.ErrorHTML, json: XenoWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: Notes.PubSub,
+  pubsub_server: Xeno.PubSub,
   live_view: [signing_salt: "6/YaJeCE"]
 
 # Configures the mailer
@@ -70,12 +70,12 @@ config :notes, NotesWeb.Endpoint,
 #
 # For production it's recommended to configure a different adapter
 # at the `config/runtime.exs`.
-config :notes, Notes.Mailer, adapter: Swoosh.Adapters.Local
+config :xeno, Xeno.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
-  notes: [
+  xeno: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
     cd: Path.expand("../assets", __DIR__),
@@ -85,7 +85,7 @@ config :esbuild,
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "4.1.7",
-  notes: [
+  xeno: [
     args: ~w(
       --input=assets/css/app.css
       --output=priv/static/assets/css/app.css

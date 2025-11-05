@@ -1,11 +1,11 @@
-defmodule Notes.Generators do
+defmodule Xeno.Generators do
   @moduledoc """
   Generators for creating test data for Notes resources using Ash.Generator.
   """
 
   use Ash.Generator
 
-  alias Notes.Notes.Directory
+  alias Xeno.Notes.Directory
 
   @doc """
   Generates a Directory resource with random or specified attributes.
@@ -18,10 +18,10 @@ defmodule Notes.Generators do
   ## Examples
 
       iex> generate(directory())
-      %Notes.Notes.Directory{name: "My Directory 1", filename: "my_directory_1"}
+      %Xeno.Notes.Directory{name: "My Directory 1", filename: "my_directory_1"}
 
       iex> generate(directory(name: "Custom", filename: "custom"))
-      %Notes.Notes.Directory{name: "Custom", filename: "custom"}
+      %Xeno.Notes.Directory{name: "Custom", filename: "custom"}
   """
   def directory(opts \\ []) do
     example_dirs = [
@@ -53,7 +53,7 @@ defmodule Notes.Generators do
   ## Examples
 
       iex> generate(directory_with_sequence(1))
-      %Notes.Notes.Directory{name: "Directory 1", filename: "directory_1"}
+      %Xeno.Notes.Directory{name: "Directory 1", filename: "directory_1"}
   """
   def directory_with_sequence(n) when is_integer(n) do
     directory(

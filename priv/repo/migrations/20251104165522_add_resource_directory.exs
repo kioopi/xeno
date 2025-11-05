@@ -1,4 +1,4 @@
-defmodule Notes.Repo.Migrations.AddResourceDirectory do
+defmodule Xeno.Repo.Migrations.AddResourceDirectory do
   @moduledoc """
   Updates resources based on their most recent snapshots.
 

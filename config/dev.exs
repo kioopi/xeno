@@ -2,12 +2,12 @@ import Config
 config :ash, policies: [show_policy_breakdowns?: true]
 
 # Configure your database
-config :notes, Notes.Repo,
+config :xeno, Xeno.Repo,
   username: System.get_env("PG_USER") || "postgres",
   password: System.get_env("PG_PASSWORD") || "postgres",
   hostname: System.get_env("PG_HOST") || "localhost",
   port: System.get_env("PG_PORT") || 5432,
-  database: System.get_env("PG_DATABASE") || "notes_dev",
+  database: System.get_env("PG_DATABASE") || "xeno_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
@@ -18,7 +18,7 @@ config :notes, Notes.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-config :notes, NotesWeb.Endpoint,
+config :xeno, XenoWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
@@ -27,8 +27,8 @@ config :notes, NotesWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "6Y55qpSEWGIgG8Sp4dZtWmIOySNd2swDxi+f1lES99Ge8i/xqmi6hkRVPTQeaqM5",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:notes, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:notes, ~w(--watch)]}
+    esbuild: {Esbuild, :install_and_run, [:xeno, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:xeno, ~w(--watch)]}
   ]
 
 # ## SSL Support
@@ -55,18 +55,18 @@ config :notes, NotesWeb.Endpoint,
 # different ports.
 
 # Watch static and templates for browser reloading.
-config :notes, NotesWeb.Endpoint,
+config :xeno, XenoWeb.Endpoint,
   live_reload: [
     web_console_logger: true,
     patterns: [
       ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
-      ~r"lib/notes_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
+      ~r"lib/xeno_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
     ]
   ]
 
 # Enable dev routes for dashboard and mailbox
-config :notes, dev_routes: true
+config :xeno, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
