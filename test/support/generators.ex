@@ -13,7 +13,6 @@ defmodule Xeno.Generators do
   ## Options
   - `:name` - Override the generated name
   - `:filename` - Override the generated filename
-  - `:parent_id` - Set a parent directory ID
 
   ## Examples
 
@@ -24,41 +23,20 @@ defmodule Xeno.Generators do
       %Xeno.Files.Directory{name: "Custom", filename: "custom"}
   """
   def directory(opts \\ []) do
-    example_dirs = [
-      "Documents",
-      "Projects",
-      "Notes",
-      "Archive",
-      "Personal",
-      "Work",
-      "Ideas",
-      "Research"
-    ]
-
     changeset_generator(
       Directory,
       :create,
-      defaults: [
-        name: StreamData.member_of(example_dirs)
-      ],
+      defaults: directory_defaults(opts),
       overrides: opts
     )
   end
 
-  @doc """
-  Generates a Directory with a unique sequential name.
+  defp directory_defaults(opts) do
+    example_dirs = ~w[Documents Projects Notes Archive Personal Work Ideas Research]
 
-  Useful when you need multiple directories with unique names.
-
-  ## Examples
-
-      iex> generate(directory_with_sequence(1))
-      %Xeno.Files.Directory{name: "Directory 1", filename: "directory_1"}
-  """
-  def directory_with_sequence(n) when is_integer(n) do
-    directory(
-      name: "Directory #{n}",
-      filename: "directory_#{n}"
-    )
+    case Keyword.has_key?(opts, :filename) do
+      true -> []
+      false -> [name: StreamData.member_of(example_dirs)]
+    end
   end
 end

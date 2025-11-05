@@ -55,6 +55,49 @@ defmodule Xeno.Files.DirectoryTest do
     end
   end
 
+  describe "get_or_create" do
+    test "creates a directory" do
+      assert {:ok, directory} = Directory.get_or_create("my_documents")
+
+      assert directory.name == "My Documents"
+      assert directory.filename == "my_documents"
+      assert is_binary(directory.id)
+    end
+
+    test "returns existing" do
+      dir = generate(directory())
+
+      assert {:ok, directory} = Directory.get_or_create(dir.filename)
+
+      assert dir.id == directory.id
+    end
+
+    test "creates with parent" do
+      parent = generate(directory())
+
+      assert {:ok, directory} = Directory.get_or_create("new_dir", parent.id)
+
+      assert parent.id == directory.parent_id
+      assert directory.name == "New Dir"
+    end
+
+    test "returns existing with parent" do
+      parent = generate(directory())
+
+      assert {:ok, child} =
+               Directory
+               |> Ash.Changeset.for_create(:create_child, %{
+                 filename: "dir",
+                 parent_id: parent.id
+               })
+               |> Ash.create()
+
+      assert {:ok, new} = Directory.get_or_create("dir", parent.id)
+
+      assert child.id == new.id
+    end
+  end
+
   describe "read action" do
     test "can generate" do
       dir = generate(directory())

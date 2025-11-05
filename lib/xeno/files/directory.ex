@@ -18,6 +18,10 @@ defmodule Xeno.Files.Directory do
     repo Xeno.Repo
   end
 
+  code_interface do
+    define :get_or_create, action: :upsert, args: [:filename, {:optional, :parent_id}]
+  end
+
   actions do
     read :read do
       primary? true
@@ -40,6 +44,16 @@ defmodule Xeno.Files.Directory do
 
       change Changes.GenerateName
       change Changes.GenerateFilename
+    end
+
+    create :upsert do
+      description "Creates a new directory unless the same filename exists within the same parent directory, in which case it returns the existing directory."
+
+      accept [:filename, :parent_id]
+      upsert? true
+      upsert_identity :unique_filename_per_parent
+
+      change Changes.GenerateName, where: absent(:name)
     end
   end
 
