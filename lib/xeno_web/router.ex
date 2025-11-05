@@ -17,7 +17,8 @@ defmodule XenoWeb.Router do
   scope "/", XenoWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    # get "/", PageController, :home
+    live "/", InfoLive
   end
 
   # Other scopes may use custom stacks.

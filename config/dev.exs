@@ -2,7 +2,8 @@ import Config
 config :ash, policies: [show_policy_breakdowns?: true]
 
 # Configure notes directory
-config :xeno, notes_directory: Path.join([:code.priv_dir(:xeno), "dev_notes"])
+# :code.priv_dir(:xeno)
+config :xeno, notes_directory: Path.join(["priv", "dev_notes"])
 
 # Configure your database
 config :xeno, Xeno.Repo,
