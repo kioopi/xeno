@@ -158,4 +158,114 @@ defmodule Xeno.Files.DirectoryTest do
       assert %DateTime{} = directory.updated_at
     end
   end
+
+  test "test fixture directories exist" do
+    assert File.exists?(Xeno.notes_dir("fixtures/grandparent"))
+  end
+
+  describe "create_from_filesystem action" do
+    test "creates directories from filesystem path" do
+      path = Xeno.notes_dir("fixtures")
+
+      assert {:ok, directories} = Directory.create_from_filesystem(path)
+
+      assert is_list(directories)
+      assert length(directories) > 0
+
+      # Verify all directories are Directory structs
+      assert Enum.all?(directories, &match?(%Directory{}, &1))
+    end
+
+    test "creates nested directory hierarchy" do
+      path = Xeno.notes_dir("fixtures/grandparent")
+
+      assert {:ok, directories} = Directory.create_from_filesystem(path)
+
+      # Since we're starting from grandparent, we get: parent, child
+      assert length(directories) == 2
+
+      # Verify parent-child relationships exist
+      filenames = Enum.map(directories, & &1.filename)
+      assert "parent" in filenames
+      assert "child" in filenames
+    end
+
+    test "is idempotent - running twice doesn't create duplicates" do
+      path = Xeno.notes_dir("fixtures/grandparent")
+
+      assert {:ok, first_run} = Directory.create_from_filesystem(path)
+      first_count = length(first_run)
+
+      assert {:ok, second_run} = Directory.create_from_filesystem(path)
+      assert first_count == length(second_run)
+
+      # Should return same directories
+      assert first_run == second_run
+
+      # Check total count in database hasn't increased
+      assert {:ok, all_dirs} = Ash.read(Directory)
+      assert length(all_dirs) == first_count
+    end
+
+    test "sets parent_id correctly for nested directories" do
+      path = Xeno.notes_dir("fixtures/grandparent")
+
+      assert {:ok, directories} = Directory.create_from_filesystem(path)
+
+      # Find parent and child
+      parent = Enum.find(directories, &(&1.filename == "parent"))
+      child = Enum.find(directories, &(&1.filename == "child"))
+
+      assert parent != nil
+      assert child != nil
+
+      # Child should have parent as parent_id
+      assert child.parent_id == parent.id
+    end
+
+    test "handles empty directories" do
+      # Create a temporary empty directory for testing
+      empty_path = Xeno.notes_dir("test_empty_dir")
+      File.mkdir_p!(empty_path)
+
+      on_exit(fn ->
+        File.rm_rf!(empty_path)
+      end)
+
+      assert {:ok, directories} = Directory.create_from_filesystem(empty_path)
+
+      # Should return empty list for directory with no subdirectories
+      assert directories == []
+    end
+
+    test "returns error for non-existent path" do
+      path = "/non/existent/path"
+
+      assert {:error, error} = Directory.create_from_filesystem(path)
+
+      # Verify it's an appropriate error
+      assert error != nil
+    end
+
+    test "processes multi-level hierarchy correctly" do
+      path = Xeno.notes_dir("fixtures")
+
+      assert {:ok, directories} = Directory.create_from_filesystem(path)
+
+      # Should have: grandparent, parent, child
+      filenames = Enum.map(directories, & &1.filename)
+      assert "grandparent" in filenames
+      assert "parent" in filenames
+      assert "child" in filenames
+      assert "theme" in filenames
+
+      # Verify the chain: grandparent -> parent -> child
+      grandparent = Enum.find(directories, &(&1.filename == "grandparent"))
+      parent = Enum.find(directories, &(&1.filename == "parent"))
+      child = Enum.find(directories, &(&1.filename == "child"))
+
+      assert parent.parent_id == grandparent.id
+      assert child.parent_id == parent.id
+    end
+  end
 end

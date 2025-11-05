@@ -11,7 +11,9 @@ defmodule Xeno.Files.Directory do
   """
   use Ash.Resource, otp_app: :xeno, domain: Xeno.Files, data_layer: AshPostgres.DataLayer
 
-  alias Xeno.Files.Changes
+  alias Xeno.Files
+  alias Files.Changes
+  alias Files.Directory.RecursiveCreate
 
   postgres do
     table "directories"
@@ -20,6 +22,7 @@ defmodule Xeno.Files.Directory do
 
   code_interface do
     define :get_or_create, action: :upsert, args: [:filename, {:optional, :parent_id}]
+    define :create_from_filesystem, args: [:path]
   end
 
   actions do
@@ -52,8 +55,27 @@ defmodule Xeno.Files.Directory do
       accept [:filename, :parent_id]
       upsert? true
       upsert_identity :unique_filename_per_parent
+      upsert_fields {:replace_all_except, [:updated_at, :inserted_at, :id]}
 
       change Changes.GenerateName, where: absent(:name)
+    end
+
+    action :create_from_filesystem, {:array, :struct} do
+      constraints items: [instance_of: __MODULE__]
+
+      argument :path, :string do
+        allow_nil? false
+        description "Absolute filesystem path to scan for subdirectories"
+      end
+
+      description "Recursively creates Directory records for all subdirectories found in the given filesystem path"
+
+      validate {Files.Validations.PathExists, arg: :path}
+      prepare {Files.Directory.SubdirsOf, arg: :path}
+
+      run fn _input, context ->
+        RecursiveCreate.create_directories(context.source_context.directories)
+      end
     end
   end
 

@@ -31,6 +31,7 @@ defmodule Xeno.DataCase do
 
   setup tags do
     File.mkdir_p!(Xeno.notes_dir("fixtures/grandparent/parent/child"))
+    File.mkdir_p!(Xeno.notes_dir("fixtures/theme/subtheme"))
     File.mkdir_p!(Xeno.notes_dir("test"))
     File.rm_rf!(Xeno.notes_dir("test/*"))
 
