@@ -1,4 +1,14 @@
 defmodule Notes.Notes.Directory do
+  @moduledoc """
+  A hierarchical directory structure for organizing notes.
+
+  Directories can be nested to create a tree-like structure, with each directory
+  having an optional parent. Root directories have a nil parent_id. Each directory
+  has both a user-friendly name and a filesystem-safe filename.
+
+  Uniqueness is enforced on the combination of filename and parent_id, ensuring
+  no duplicate filenames exist within the same parent directory or at the root level.
+  """
   use Ash.Resource, otp_app: :notes, domain: Notes.Notes, data_layer: AshPostgres.DataLayer
 
   alias Notes.Notes.Changes
@@ -9,7 +19,10 @@ defmodule Notes.Notes.Directory do
   end
 
   actions do
-    defaults [:read]
+    read :read do
+      primary? true
+      description "Read directories from the database"
+    end
 
     create :create do
       primary? true
@@ -56,6 +69,10 @@ defmodule Notes.Notes.Directory do
   end
 
   identities do
-    identity :unique_filename_per_parent, [:filename, :parent_id], nils_distinct?: false
+    identity :unique_filename_per_parent, [:filename, :parent_id] do
+      nils_distinct? false
+
+      description "Ensures filename uniqueness within the same parent directory, including root level (nil parent)"
+    end
   end
 end
