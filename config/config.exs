@@ -50,7 +50,7 @@ config :spark,
 config :xeno,
   ecto_repos: [Xeno.Repo],
   generators: [timestamp_type: :utc_datetime],
-  ash_domains: [Xeno.Notes]
+  ash_domains: [Xeno.Files]
 
 # Configures the endpoint
 config :xeno, XenoWeb.Endpoint,

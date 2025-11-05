@@ -1,4 +1,4 @@
-defmodule Xeno.Notes.Changes.GenerateName do
+defmodule Xeno.Files.Changes.GenerateName do
   @moduledoc """
   Generates a human-readable name from a filesystem-friendly filename.
 

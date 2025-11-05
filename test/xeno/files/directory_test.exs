@@ -1,11 +1,10 @@
-defmodule Xeno.Notes.DirectoryTest do
+defmodule Xeno.Files.DirectoryTest do
   use Xeno.DataCase, async: true
   use ExUnitProperties
 
   import Xeno.Generators
   import Ash.Generator, only: [action_input: 2]
-  alias Xeno.Notes.Directory
-
+  alias Xeno.Files.Directory
 
   describe "create action" do
     test "creates a directory with valid attributes" do

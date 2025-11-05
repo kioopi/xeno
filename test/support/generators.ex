@@ -5,7 +5,7 @@ defmodule Xeno.Generators do
 
   use Ash.Generator
 
-  alias Xeno.Notes.Directory
+  alias Xeno.Files.Directory
 
   @doc """
   Generates a Directory resource with random or specified attributes.
@@ -18,10 +18,10 @@ defmodule Xeno.Generators do
   ## Examples
 
       iex> generate(directory())
-      %Xeno.Notes.Directory{name: "My Directory 1", filename: "my_directory_1"}
+      %Xeno.Files.Directory{name: "My Directory 1", filename: "my_directory_1"}
 
       iex> generate(directory(name: "Custom", filename: "custom"))
-      %Xeno.Notes.Directory{name: "Custom", filename: "custom"}
+      %Xeno.Files.Directory{name: "Custom", filename: "custom"}
   """
   def directory(opts \\ []) do
     example_dirs = [
@@ -53,7 +53,7 @@ defmodule Xeno.Generators do
   ## Examples
 
       iex> generate(directory_with_sequence(1))
-      %Xeno.Notes.Directory{name: "Directory 1", filename: "directory_1"}
+      %Xeno.Files.Directory{name: "Directory 1", filename: "directory_1"}
   """
   def directory_with_sequence(n) when is_integer(n) do
     directory(

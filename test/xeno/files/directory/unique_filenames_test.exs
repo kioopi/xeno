@@ -1,9 +1,9 @@
-defmodule Xeno.Notes.Directory.UniqueFilenamesTest do
+defmodule Xeno.Files.Directory.UniqueFilenamesTest do
   use Xeno.DataCase, async: true
   use ExUnitProperties
 
   import Xeno.Generators
-  alias Xeno.Notes.Directory
+  alias Xeno.Files.Directory
 
   describe "unique filename per parent" do
     test "prevents duplicate filenames in same parent directory" do

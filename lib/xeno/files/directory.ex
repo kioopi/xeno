@@ -1,4 +1,4 @@
-defmodule Xeno.Notes.Directory do
+defmodule Xeno.Files.Directory do
   @moduledoc """
   A hierarchical directory structure for organizing notes.
 
@@ -9,9 +9,9 @@ defmodule Xeno.Notes.Directory do
   Uniqueness is enforced on the combination of filename and parent_id, ensuring
   no duplicate filenames exist within the same parent directory or at the root level.
   """
-  use Ash.Resource, otp_app: :xeno, domain: Xeno.Notes, data_layer: AshPostgres.DataLayer
+  use Ash.Resource, otp_app: :xeno, domain: Xeno.Files, data_layer: AshPostgres.DataLayer
 
-  alias Xeno.Notes.Changes
+  alias Xeno.Files.Changes
 
   postgres do
     table "directories"

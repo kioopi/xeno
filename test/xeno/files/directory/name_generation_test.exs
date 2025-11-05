@@ -1,8 +1,8 @@
-defmodule Xeno.Notes.Directory.NameGenerationTest do
+defmodule Xeno.Files.Directory.NameGenerationTest do
   use Xeno.DataCase, async: true
   use ExUnitProperties
 
-  alias Xeno.Notes.Directory
+  alias Xeno.Files.Directory
 
   describe "auto-generation of name/filename" do
     test "generates filename from name with simple text" do
