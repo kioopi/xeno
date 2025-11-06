@@ -22,7 +22,8 @@ defmodule Xeno.MixProject do
   def application do
     [
       mod: {Xeno.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools],
+      start_phases: start_phases()
     ]
   end
 
@@ -100,5 +101,12 @@ defmodule Xeno.MixProject do
       ],
       precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]
     ]
+  end
+
+  defp start_phases do
+    case Application.get_env(:xeno, :read_notes_on_startup, true) do
+      true -> [create_dirs: Xeno.notes_dir()]
+      false -> []
+    end
   end
 end

@@ -3,6 +3,8 @@ defmodule Xeno.Files do
     otp_app: :xeno
 
   resources do
-    resource Xeno.Files.Directory
+    resource Xeno.Files.Directory do
+      define :create_directories_from_filesystem, args: [:path], action: :create_from_filesystem
+    end
   end
 end

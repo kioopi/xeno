@@ -24,6 +24,14 @@ defmodule Xeno.Application do
     Supervisor.start_link(children, opts)
   end
 
+  @impl true
+  def start_phase(:create_dirs, _phase_type, notes_dir) do
+    File.mkdir_p!(notes_dir)
+    Xeno.Files.create_directories_from_filesystem!(notes_dir)
+
+    :ok
+  end
+
   # Tell Phoenix to update the endpoint configuration
   # whenever the application is updated.
   @impl true

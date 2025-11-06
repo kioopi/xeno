@@ -2,7 +2,9 @@ import Config
 config :ash, policies: [show_policy_breakdowns?: true], disable_async?: true
 
 # Configure notes directory
-config :xeno, notes_directory: "test/notes/"
+config :xeno,
+  notes_directory: "test/notes/",
+  read_notes_on_startup: false
 
 # Configure your database
 #

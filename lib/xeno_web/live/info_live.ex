@@ -3,6 +3,8 @@ defmodule XenoWeb.InfoLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, notes_dir: Xeno.notes_dir())}
+    notes_dir = Xeno.notes_dir()
+
+    {:ok, assign(socket, root_dir: root_dir)}
   end
 end
