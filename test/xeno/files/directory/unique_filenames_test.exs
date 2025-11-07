@@ -7,84 +7,44 @@ defmodule Xeno.Files.Directory.UniqueFilenamesTest do
 
   describe "unique filename per parent" do
     test "prevents duplicate filenames in same parent directory" do
-      parent = generate(directory(name: "Parent"))
+      generate(directory(path: "parent"))
+      generate(directory(path: "parent/documents"))
 
-      # Create first child with filename "documents"
-      assert {:ok, _child1} =
-               Directory
-               |> Ash.Changeset.for_create(:create_child, %{
-                 name: "Documents",
-                 filename: "documents",
-                 parent_id: parent.id
-               })
-               |> Ash.create()
-
-      # Attempt to create second child with same filename in same parent
       assert {:error, changeset} =
-               Directory
-               |> Ash.Changeset.for_create(:create_child, %{
-                 name: "Documents 2",
-                 filename: "documents",
-                 parent_id: parent.id
-               })
-               |> Ash.create()
+               Directory.create("parent/documents")
 
       # Verify error is about uniqueness constraint
       assert changeset.errors != []
     end
 
     test "prevents duplicate filenames at root level" do
-      # Create first root directory with filename "docs"
-      assert {:ok, _dir1} =
-               Directory
-               |> Ash.Changeset.for_create(:create, %{
-                 name: "Docs",
-                 filename: "docs"
-               })
-               |> Ash.create()
+      generate(directory(path: "docs"))
 
       # Attempt to create second root directory with same filename
       assert {:error, changeset} =
-               Directory
-               |> Ash.Changeset.for_create(:create, %{
-                 name: "Docs 2",
-                 filename: "docs"
-               })
-               |> Ash.create()
+               Directory.create("docs")
 
       # Verify error is about uniqueness constraint
       assert changeset.errors != []
     end
 
     test "allows same filename in different parent directories" do
-      parent1 = generate(directory(name: "Parent 1"))
-      parent2 = generate(directory(name: "Parent 2"))
+      p1 = generate(directory(path: "dir1"))
+      p2 = generate(directory(path: "dir2"))
 
       # Create child with filename "notes" in first parent
       assert {:ok, child1} =
-               Directory
-               |> Ash.Changeset.for_create(:create_child, %{
-                 name: "Notes",
-                 filename: "notes",
-                 parent_id: parent1.id
-               })
-               |> Ash.create()
+               Directory.create("dir1/notes", load: :parent)
 
       # Create child with same filename "notes" in second parent (should succeed)
       assert {:ok, child2} =
-               Directory
-               |> Ash.Changeset.for_create(:create_child, %{
-                 name: "Notes",
-                 filename: "notes",
-                 parent_id: parent2.id
-               })
-               |> Ash.create()
+               Directory.create("dir2/notes", load: :parent)
 
       # Verify both children were created successfully
       assert child1.filename == "notes"
       assert child2.filename == "notes"
-      assert child1.parent_id == parent1.id
-      assert child2.parent_id == parent2.id
+      assert child1.parent.id == p1.id
+      assert child2.parent.id == p2.id
       assert child1.id != child2.id
     end
   end

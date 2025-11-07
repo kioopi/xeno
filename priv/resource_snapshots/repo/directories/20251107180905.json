@@ -33,8 +33,8 @@
       "references": null,
       "scale": null,
       "size": null,
-      "source": "filename",
-      "type": "text"
+      "source": "path",
+      "type": "ltree"
     },
     {
       "allow_nil?": false,
@@ -59,62 +59,50 @@
       "size": null,
       "source": "updated_at",
       "type": "utc_datetime_usec"
-    },
-    {
-      "allow_nil?": true,
-      "default": "nil",
-      "generated?": false,
-      "precision": null,
-      "primary_key?": false,
-      "references": {
-        "deferrable": false,
-        "destination_attribute": "id",
-        "destination_attribute_default": null,
-        "destination_attribute_generated": null,
-        "index?": false,
-        "match_type": null,
-        "match_with": null,
-        "multitenancy": {
-          "attribute": null,
-          "global": null,
-          "strategy": null
-        },
-        "name": "directories_parent_id_fkey",
-        "on_delete": null,
-        "on_update": null,
-        "primary_key?": true,
-        "schema": "public",
-        "table": "directories"
-      },
-      "scale": null,
-      "size": null,
-      "source": "parent_id",
-      "type": "uuid"
     }
   ],
   "base_filter": null,
   "check_constraints": [],
-  "custom_indexes": [],
+  "custom_indexes": [
+    {
+      "all_tenants?": false,
+      "concurrently": false,
+      "error_fields": [
+        "path"
+      ],
+      "fields": [
+        {
+          "type": "atom",
+          "value": "path"
+        }
+      ],
+      "include": null,
+      "message": null,
+      "name": null,
+      "nulls_distinct": true,
+      "prefix": null,
+      "table": null,
+      "unique": false,
+      "using": "GIST",
+      "where": null
+    }
+  ],
   "custom_statements": [],
   "has_create_action": true,
-  "hash": "0C2B835C4EDDC548BAABDCDCE3EFBBE2F8F1BEDC7D1E5520AFD23871A719E108",
+  "hash": "F895427271B89777EBC8C41BDA1315E559294C5710D0C6E8803B0C79E9184889",
   "identities": [
     {
       "all_tenants?": false,
       "base_filter": null,
-      "index_name": "directories_unique_filename_per_parent_index",
+      "index_name": "directories_unique_path_index",
       "keys": [
         {
           "type": "atom",
-          "value": "filename"
-        },
-        {
-          "type": "atom",
-          "value": "parent_id"
+          "value": "path"
         }
       ],
-      "name": "unique_filename_per_parent",
-      "nils_distinct?": false,
+      "name": "unique_path",
+      "nils_distinct?": true,
       "where": null
     }
   ],
@@ -123,7 +111,7 @@
     "global": null,
     "strategy": null
   },
-  "repo": "Elixir.Notes.Repo",
+  "repo": "Elixir.Xeno.Repo",
   "schema": null,
   "table": "directories"
 }

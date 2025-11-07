@@ -15,14 +15,22 @@ defmodule Xeno.Files.Directory do
   alias Files.Changes
   alias Files.Directory.RecursiveCreate
 
+  require Ash.Query
+
   postgres do
     table "directories"
     repo Xeno.Repo
+
+    custom_indexes do
+      index :path, using: "GIST"
+    end
   end
 
   code_interface do
-    define :get_or_create, action: :upsert, args: [:filename, {:optional, :parent_id}]
+    define :get_or_create, action: :upsert, args: [:path]
+    define :create, action: :create, args: [:path]
     define :create_from_filesystem, args: [:path]
+    define :by_path, args: [:path], get?: true
   end
 
   actions do
@@ -33,31 +41,33 @@ defmodule Xeno.Files.Directory do
 
     create :create do
       primary? true
-      accept [:name, :filename]
+      accept [:name]
       description "Create a new directory"
 
-      change Changes.GenerateName
-      change Changes.GenerateFilename
-    end
+      argument :path, :string do
+        allow_nil? false
 
-    create :create_child do
-      accept [:name, :filename, :parent_id]
+        constraints match: ~r/^[[:alnum:]\/_]*$/,
+                    min_length: 3
+      end
 
-      description "Create a new directory as a child of another directory"
-
-      change Changes.GenerateName
-      change Changes.GenerateFilename
+      change Changes.SetPath
     end
 
     create :upsert do
       description "Creates a new directory unless the same filename exists within the same parent directory, in which case it returns the existing directory."
 
-      accept [:filename, :parent_id]
-      upsert? true
-      upsert_identity :unique_filename_per_parent
-      upsert_fields {:replace_all_except, [:updated_at, :inserted_at, :id]}
+      accept [:name]
 
-      change Changes.GenerateName, where: absent(:name)
+      argument :path, :string do
+        allow_nil? false
+      end
+
+      upsert? true
+      upsert_identity :unique_path
+      upsert_fields {:replace_all_except, [:name, :updated_at, :inserted_at, :id]}
+
+      change Changes.SetPath
     end
 
     action :create_from_filesystem, {:array, :struct} do
@@ -77,6 +87,28 @@ defmodule Xeno.Files.Directory do
         RecursiveCreate.create_directories(context.source_context.directories)
       end
     end
+
+    read :by_path do
+      description "Read a directory by its filesystem path"
+
+      argument :path, :string do
+        allow_nil? false
+      end
+
+      prepare fn %{arguments: args} = query, _context ->
+        Ash.Query.filter(query, path: [eq: path_to_ltree(args.path)])
+      end
+    end
+  end
+
+  preparations do
+    prepare build(load: [:filename])
+  end
+
+  changes do
+    change load(:filename) do
+      on [:create, :update]
+    end
   end
 
   attributes do
@@ -88,27 +120,63 @@ defmodule Xeno.Files.Directory do
       description "UI friendly name for the directory, may contain spaces and special characters"
     end
 
-    attribute :filename, :string do
+    attribute :path, AshPostgres.Ltree do
       allow_nil? false
-      public? true
-
-      description "Filesystem friendly name for the directory, should not contain special characters or spaces"
+      description "filesystem path to the directory"
     end
 
     timestamps()
   end
 
   relationships do
-    belongs_to :parent, __MODULE__ do
+    has_one :parent, __MODULE__ do
+      no_attributes? true
+
+      filter expr(
+               fragment(
+                 "(ltree2text(?) || '.' || ?)::lquery ~ ?",
+                 path,
+                 # parent() is self
+                 parent(filename),
+                 parent(path)
+               )
+             )
+
       description "The parent directory of this directory, leave nil for root directories"
+    end
+
+    has_many :children, __MODULE__ do
+      no_attributes? true
+      filter expr(fragment("? ~ (ltree2text(?) || '.*{1}')::lquery", path, parent(path)))
+      sort path: :desc
+      description "The list of directories contained by this directory"
+    end
+
+    has_many :descendants, __MODULE__ do
+      no_attributes? true
+      filter expr(fragment("? <@ ?", path, parent(path)))
+      sort path: :desc
+      description "The list of descendant directories contained by this directory at any level"
     end
   end
 
-  identities do
-    identity :unique_filename_per_parent, [:filename, :parent_id] do
-      nils_distinct? false
+  calculations do
+    calculate :filename, :string, expr(fragment("subpath(?, -1)", path))
 
-      description "Ensures filename uniqueness within the same parent directory, including root level (nil parent)"
+    calculate :filesystem_path,
+              :string,
+              expr(fragment("'/' || replace(ltree2text(?), '.', '/')", path))
+  end
+
+  identities do
+    identity :unique_path, [:path] do
+      description "Ensures direcorty paths have to be unique"
     end
+  end
+
+  def path_to_ltree(nil), do: nil
+
+  def path_to_ltree(path) do
+    path |> Path.split() |> Enum.filter(&(&1 != "/"))
   end
 end

@@ -3,46 +3,21 @@ defmodule Xeno.Files.DirectoryTest do
   use ExUnitProperties
 
   import Xeno.Generators
-  import Ash.Generator, only: [action_input: 2]
+  import Ash.Generator, only: [action_input: 3]
   alias Xeno.Files.Directory
 
+  require Ash.Query
+
   describe "create action" do
-    test "creates a directory with valid attributes" do
-      assert {:ok, directory} =
-               Directory
-               |> Ash.Changeset.for_create(:create, %{
-                 name: "My Documents",
-                 filename: "my_documents"
-               })
-               |> Ash.create()
-
-      assert directory.name == "My Documents"
-      assert directory.filename == "my_documents"
-      assert is_binary(directory.id)
-    end
-
-    test "auto-generates name when only filename provided" do
-      assert {:ok, directory} =
-               Directory
-               |> Ash.Changeset.for_create(:create, %{filename: "documents"})
-               |> Ash.create()
-
-      assert directory.name == "Documents"
-      assert directory.filename == "documents"
-    end
-
-    test "auto-generates filename when only name provided" do
-      assert {:ok, directory} =
-               Directory
-               |> Ash.Changeset.for_create(:create, %{name: "Documents"})
-               |> Ash.create()
-
-      assert directory.name == "Documents"
-      assert directory.filename == "documents"
-    end
-
     property "creates directories with generated data" do
-      check all(input <- action_input(Directory, :create)) do
+
+      gens = %{
+        path: StreamData.string(:alphanumeric, min_length: 3)
+              |>  StreamData.list_of(length: 1..4)
+              |>  StreamData.map(&Path.join/1)
+      }
+
+      check all(input <- action_input(Directory, :create, gens)) do
         assert {:ok, directory} =
                  Directory
                  |> Ash.Changeset.for_create(:create, input)
@@ -55,51 +30,96 @@ defmodule Xeno.Files.DirectoryTest do
     end
   end
 
+  describe "generator" do
+    test "generates directory" do
+      dir = generate(directory())
+
+      assert %Directory{} = dir
+      assert List.last(dir.path) == dir.filename
+      assert is_binary(dir.name)
+    end
+
+    test "takes name" do
+      dir = generate(directory(name: "My Name"))
+      assert "My Name" == dir.name
+    end
+
+    test "takes path" do
+      dir = generate(directory(path: Path.join(~w"etc passwd")))
+
+      assert "passwd" == dir.filename
+    end
+  end
+
+  describe "create code_interface" do
+    test "creates a Directory" do
+      docs = Directory.create!("docs", load: [:filename])
+
+      assert docs.path == [docs.filename]
+
+      tut = Directory.create!("docs/tuts", %{name: "Tutorial"}, load: [:filename])
+
+      assert tut.path == ["docs", tut.filename]
+      assert tut.name == "Tutorial"
+
+      # path defines identity
+      assert docs.id == Directory.get_or_create!(docs.filename).id
+
+      assert "Tutorial" ==
+               Directory.get_or_create!(Path.join(tut.path), %{name: "Hello"}).name
+
+      assert "Sci-enz" ==
+               Directory.get_or_create!("science", %{name: "Sci-enz"}).name
+    end
+
+    test "creates a subdirectory" do
+      dir = Directory.create!("docs/taxes")
+
+      assert dir.path == ["docs", "taxes"]
+      assert dir.name == "Taxes"
+    end
+
+    test "name gets humanized" do
+      dir = Directory.create!("docs/taxes/taxes_2005")
+
+      assert dir.name == "Taxes 2005"
+    end
+
+    test "can deal with root dir" do
+      dir = Directory.create!("/etc/passwd")
+
+      assert dir.path == ["etc", "passwd"]
+    end
+  end
+
   describe "get_or_create" do
     test "creates a directory" do
-      assert {:ok, directory} = Directory.get_or_create("my_documents")
+      directory = Directory.get_or_create!("my_documents")
 
       assert directory.name == "My Documents"
       assert directory.filename == "my_documents"
       assert is_binary(directory.id)
     end
 
-    test "returns existing" do
-      dir = generate(directory())
+    test "creates a subdirectory" do
+      directory = Directory.get_or_create!("docs/taxes")
 
-      assert {:ok, directory} = Directory.get_or_create(dir.filename)
+      assert directory.name == "Taxes"
+      assert directory.filename == "taxes"
+      assert is_binary(directory.id)
+    end
+
+    test "returns existing" do
+      dir = Directory.create!("docs/taxes")
+
+      assert directory = dir.path |> Path.join() |> Directory.get_or_create!()
 
       assert dir.id == directory.id
-    end
-
-    test "creates with parent" do
-      parent = generate(directory())
-
-      assert {:ok, directory} = Directory.get_or_create("new_dir", parent.id)
-
-      assert parent.id == directory.parent_id
-      assert directory.name == "New Dir"
-    end
-
-    test "returns existing with parent" do
-      parent = generate(directory())
-
-      assert {:ok, child} =
-               Directory
-               |> Ash.Changeset.for_create(:create_child, %{
-                 filename: "dir",
-                 parent_id: parent.id
-               })
-               |> Ash.create()
-
-      assert {:ok, new} = Directory.get_or_create("dir", parent.id)
-
-      assert child.id == new.id
     end
   end
 
   describe "read action" do
-    test "can generate" do
+    test "can generate a directory via the test generator" do
       dir = generate(directory())
 
       assert %Directory{} = dir
@@ -118,32 +138,71 @@ defmodule Xeno.Files.DirectoryTest do
     end
   end
 
-  describe "parent relationship" do
-    test "can create directory with parent" do
-      parent = generate(directory(name: "Parent"))
+  describe "child relationship" do
+    test "can load children" do
+      parent = generate(directory(path: "etc"))
 
-      assert {:ok, child} =
-               Directory
-               |> Ash.Changeset.for_create(:create_child, %{
-                 name: "Child",
-                 filename: "child",
-                 parent_id: parent.id
-               })
-               |> Ash.create()
+      generate(directory(path: "etc/iwd"))
+      generate(directory(path: "etc/passwd"))
 
-      assert child.parent_id == parent.id
+      dir = Ash.get!(Directory, parent.id, load: [children: :filename])
+
+      children = Enum.map(dir.children, & &1.filename)
+
+      assert children == ["passwd", "iwd"]
     end
 
-    test "can create directory without parent (root directory)" do
-      assert {:ok, directory} =
-               Directory
-               |> Ash.Changeset.for_create(:create, %{
-                 name: "Root",
-                 filename: "root"
-               })
-               |> Ash.create()
+    test "excludes grandchilden" do
+      parent = generate(directory(path: "etc"))
 
-      assert is_nil(directory.parent_id)
+      generate(directory(path: "etc/passwd"))
+      generate(directory(path: "etc/iwd"))
+      generate(directory(path: "etc/iwd/grandchild"))
+
+      dir = Ash.get!(Directory, parent.id, load: [children: :filename])
+
+      children = Enum.map(dir.children, & &1.filename)
+
+      assert children == ["passwd", "iwd"]
+    end
+
+    test "can load recursively" do
+      parent = generate(directory(path: "etc"))
+
+      generate(directory(path: "etc/passwd"))
+      generate(directory(path: "etc/iwd"))
+      generate(directory(path: "etc/iwd/grandchild"))
+
+      dir = Ash.get!(Directory, parent.id, load: [descendants: [:parent, :filename]])
+
+      child = find_by_filename(dir.descendants, "iwd")
+      grandchild = find_by_filename(dir.descendants, "grandchild")
+
+      assert child.parent.id == dir.id
+      assert grandchild.parent.id == child.id
+    end
+  end
+
+  describe "parent relationship" do
+    test "can load parent" do
+      generate(directory(path: "etc"))
+
+      child = generate(directory(path: "etc/iwd"))
+
+      dir = Ash.get!(Directory, child.id, load: [parent: :filename])
+
+      assert dir.parent.filename == "etc"
+    end
+
+    test "does not return grand parent" do
+      generate(directory(path: "grand"))
+      generate(directory(path: "grand/parent"))
+
+      child = generate(directory(path: "grand/parent/child"))
+
+      dir = Ash.get!(Directory, child.id, load: [parent: :filename])
+
+      assert dir.parent.filename == "parent"
     end
   end
 
@@ -151,11 +210,29 @@ defmodule Xeno.Files.DirectoryTest do
     test "sets inserted_at and updated_at on creation" do
       {:ok, directory} =
         Directory
-        |> Ash.Changeset.for_create(:create, %{name: "Test", filename: "test"})
+        |> Ash.Changeset.for_create(:create, %{path: "etc"})
         |> Ash.create()
 
       assert %DateTime{} = directory.inserted_at
       assert %DateTime{} = directory.updated_at
+    end
+  end
+
+  describe "calculations" do
+    test "filename" do
+      %{ id: id } = generate(directory(path: "etc/passwd"))
+
+      dir = Ash.get!(Directory, id, load: [:filename])
+     
+      assert "passwd" == dir.filename
+    end
+
+    test "filesystem_path" do
+      %{ id: id } = generate(directory(path: "etc/passwd"))
+
+      dir = Ash.get!(Directory, id, load: [:filesystem_path])
+
+      assert "/etc/passwd" == dir.filesystem_path
     end
   end
 
@@ -167,7 +244,7 @@ defmodule Xeno.Files.DirectoryTest do
     test "creates directories from filesystem path" do
       path = Xeno.notes_dir("fixtures")
 
-      assert {:ok, directories} = Directory.create_from_filesystem(path)
+      assert directories = Directory.create_from_filesystem!(path)
 
       assert is_list(directories)
       assert length(directories) > 0
@@ -207,20 +284,21 @@ defmodule Xeno.Files.DirectoryTest do
       assert length(all_dirs) == first_count
     end
 
-    test "sets parent_id correctly for nested directories" do
+    test "sets parent correctly for nested directories" do
       path = Xeno.notes_dir("fixtures/grandparent")
 
       assert {:ok, directories} = Directory.create_from_filesystem(path)
 
       # Find parent and child
-      parent = Enum.find(directories, &(&1.filename == "parent"))
-      child = Enum.find(directories, &(&1.filename == "child"))
+      parent = find_by_filename(directories, "parent") |> Ash.load!(:children)
+      child = find_by_filename(directories, "child") |> Ash.load!(:parent)
 
       assert parent != nil
       assert child != nil
 
-      # Child should have parent as parent_id
-      assert child.parent_id == parent.id
+      assert child.parent.id == parent.id
+
+      assert Enum.any?(parent.children, &(&1.id == child.id))
     end
 
     test "handles empty directories" do
@@ -260,12 +338,84 @@ defmodule Xeno.Files.DirectoryTest do
       assert "theme" in filenames
 
       # Verify the chain: grandparent -> parent -> child
-      grandparent = Enum.find(directories, &(&1.filename == "grandparent"))
-      parent = Enum.find(directories, &(&1.filename == "parent"))
-      child = Enum.find(directories, &(&1.filename == "child"))
+      grandparent = find_by_filename(directories, "grandparent")
+      parent = find_by_filename(directories, "parent") |> Ash.load!(parent: :filename)
+      child = find_by_filename(directories, "child") |> Ash.load!(parent: :filename)
 
-      assert parent.parent_id == grandparent.id
-      assert child.parent_id == parent.id
+      assert parent.parent.id == grandparent.id
+      assert child.parent.id == parent.id
     end
+  end
+
+  describe "playground" do
+    test "see sql" do
+      query =  Ash.Query.for_read(Directory, :read)
+        |> Ash.Query.filter(path == "etc.passwd")
+        |> Ash.Query.load(:filesystem_path)
+
+      {:ok, data_layer_query } = Ash.data_layer_query(query)
+
+      assert %Ecto.Query{} = data_layer_query.query
+
+      {sql, args} = Xeno.Repo.to_sql(:all, data_layer_query.query)
+
+      assert args == ["etc.passwd"]
+      assert is_binary(sql) # this is the sql
+    end
+  end
+
+  describe "querying" do
+    test "by path equality" do
+      generate(directory(path: "etc/passwd"))
+
+      dir = Ash.Query.filter(Directory, path == "etc.passwd") |> Ash.read_one!()
+
+      assert dir.filename == "passwd"
+    end
+
+    test "by path array" do
+      generate(directory(path: "etc/passwd"))
+
+      dir = Ash.Query.filter(Directory, path == ["etc", "passwd"]) |> Ash.read_one!()
+
+      assert dir.filename == "passwd"
+    end
+
+    test "by path array in variable" do
+      generate(directory(path: "etc/passwd"))
+      p = ["etc", "passwd"]
+
+      dir = Ash.Query.filter(Directory, path == ^p) |> Ash.read_one!()
+
+      assert dir.filename == "passwd"
+    end
+
+    test "by_path action" do
+      generate(directory(path: "etc/passwd"))
+
+      dir = Ash.Query.for_read(Directory, :by_path, %{ path: "etc/passwd" }) |> Ash.read_one!()
+
+      assert dir.filename == "passwd"
+    end
+
+    test "by_path code interface" do
+      generate(directory(path: "etc/passwd"))
+
+      dir = Directory.by_path!("etc/passwd")
+
+      assert dir.filename == "passwd"
+    end
+
+    test "deals with root dir" do
+      generate(directory(path: "etc/passwd"))
+
+      dir = Directory.by_path!("/etc/passwd")
+
+      assert dir.filename == "passwd"
+    end
+  end
+
+  defp find_by_filename(directories, name) do
+    Enum.find(directories, &(&1.filename == name))
   end
 end

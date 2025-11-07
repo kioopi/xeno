@@ -17,26 +17,47 @@ defmodule Xeno.Generators do
   ## Examples
 
       iex> generate(directory())
-      %Xeno.Files.Directory{name: "My Directory 1", filename: "my_directory_1"}
+      %Xeno.Files.Directory{name: "Notes", path: "notes", filename: "notes"}
 
-      iex> generate(directory(name: "Custom", filename: "custom"))
-      %Xeno.Files.Directory{name: "Custom", filename: "custom"}
+      iex> generate(directory(name: "Custom", path: "some/path"))
+      %Xeno.Files.Directory{name: "Custom", path: "some/path", filename: "path"}
   """
   def directory(opts \\ []) do
+    example_dirs = ~w[Documents Projects Notes Archive Personal Work Ideas Research]
+
+    path_generator =
+      Enum.map(example_dirs, &String.downcase/1)
+      |> StreamData.member_of()
+      |> StreamData.list_of(length: 1..4)
+      |> StreamData.nonempty()
+
     changeset_generator(
       Directory,
       :create,
-      defaults: directory_defaults(opts),
+      uses: [
+        params: params_generator(path_generator)
+      ],
+      defaults: fn %{params: params} ->
+        [
+          name: params.name,
+          path: params.path
+        ]
+      end,
       overrides: opts
     )
   end
 
-  defp directory_defaults(opts) do
-    example_dirs = ~w[Documents Projects Notes Archive Personal Work Ideas Research]
+  def params_generator(genarator) do
+    StreamData.repeatedly(fn ->
+      path =
+        genarator
+        |> Enum.take(1)
+        |> List.first()
 
-    case Keyword.has_key?(opts, :filename) do
-      true -> []
-      false -> [name: StreamData.member_of(example_dirs)]
-    end
+      %{
+        path: Path.join(path),
+        name: List.last(path) |> String.capitalize()
+      }
+    end)
   end
 end

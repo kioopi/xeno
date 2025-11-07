@@ -54,46 +54,11 @@ defmodule Xeno.Files.Directory.RecursiveCreate do
   """
   def create_directories(directories) do
     try do
-      # Process each directory, creating or retrieving it
-      directories =
-        Enum.reduce(directories, [], fn relative_path, acc ->
-          case create_directory_chain(relative_path) do
-            {:ok, directory} -> [directory | acc]
-            {:error, _} -> acc
-          end
-        end)
-        |> Enum.reverse()
+      directories = Enum.map(directories, &Directory.get_or_create!(&1))
 
       {:ok, directories}
     rescue
       e -> {:error, Exception.message(e)}
-    end
-  end
-
-  # Creates a directory chain from a relative path string.
-  #
-  # Takes a path like "grandparent/parent/child" and splits it into segments,
-  # then recursively creates each directory, passing the parent_id from level to level.
-  defp create_directory_chain(relative_path) do
-    segments = String.split(relative_path, "/")
-    create_directory_segments(segments, nil)
-  end
-
-  # Recursively creates directory records from path segments, maintaining parent-child relationships.
-  #
-  # Base case: empty list returns error
-  defp create_directory_segments([], _parent_id), do: {:error, "Empty path"}
-
-  # Base case: single segment creates final directory with given parent
-  defp create_directory_segments([segment], parent_id) do
-    Directory.get_or_create(segment, parent_id)
-  end
-
-  # Recursive case: create/get first segment, then process remaining segments with its ID as parent
-  defp create_directory_segments([segment | rest], parent_id) do
-    case Directory.get_or_create(segment, parent_id) do
-      {:ok, directory} -> create_directory_segments(rest, directory.id)
-      error -> error
     end
   end
 end

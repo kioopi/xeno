@@ -1,4 +1,4 @@
-defmodule Xeno.Repo.Migrations.AddResourceDirectory do
+defmodule Xeno.Repo.Migrations.AddDirecoryTable do
   @moduledoc """
   Updates resources based on their most recent snapshots.
 
@@ -11,7 +11,7 @@ defmodule Xeno.Repo.Migrations.AddResourceDirectory do
     create table(:directories, primary_key: false) do
       add :id, :uuid, null: false, default: fragment("gen_random_uuid()"), primary_key: true
       add :name, :text, null: false
-      add :filename, :text, null: false
+      add :path, :ltree, null: false
 
       add :inserted_at, :utc_datetime_usec,
         null: false,
@@ -20,19 +20,17 @@ defmodule Xeno.Repo.Migrations.AddResourceDirectory do
       add :updated_at, :utc_datetime_usec,
         null: false,
         default: fragment("(now() AT TIME ZONE 'utc')")
-
-      add :parent_id,
-          references(:directories,
-            column: :id,
-            name: "directories_parent_id_fkey",
-            type: :uuid,
-            prefix: "public"
-          )
     end
+
+    create index(:directories, [:path], using: "GIST")
+
+    create unique_index(:directories, [:path], name: "directories_unique_path_index")
   end
 
   def down do
-    drop constraint(:directories, "directories_parent_id_fkey")
+    drop_if_exists unique_index(:directories, [:path], name: "directories_unique_path_index")
+
+    drop_if_exists index(:directories, [:path])
 
     drop table(:directories)
   end
