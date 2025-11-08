@@ -10,11 +10,11 @@ defmodule Xeno.Files.DirectoryTest do
 
   describe "create action" do
     property "creates directories with generated data" do
-
       gens = %{
-        path: StreamData.string(:alphanumeric, min_length: 3)
-              |>  StreamData.list_of(length: 1..4)
-              |>  StreamData.map(&Path.join/1)
+        path:
+          StreamData.string(:alphanumeric, min_length: 3)
+          |> StreamData.list_of(length: 1..4)
+          |> StreamData.map(&Path.join/1)
       }
 
       check all(input <- action_input(Directory, :create, gens)) do
@@ -166,7 +166,7 @@ defmodule Xeno.Files.DirectoryTest do
       assert children == ["passwd", "iwd"]
     end
 
-    test "can load recursively" do
+    test "descendants includes children and grandchilden" do
       parent = generate(directory(path: "etc"))
 
       generate(directory(path: "etc/passwd"))
@@ -180,6 +180,16 @@ defmodule Xeno.Files.DirectoryTest do
 
       assert child.parent.id == dir.id
       assert grandchild.parent.id == child.id
+    end
+
+    test "descendants does not include self" do
+      parent = generate(directory(path: "etc"))
+
+      generate(directory(path: "etc/passwd"))
+
+      dir = Ash.get!(Directory, parent.id, load: [descendants: [:parent, :filename]])
+
+      assert Enum.all?(dir.descendants, &(&1.id != parent.id))
     end
   end
 
@@ -220,15 +230,15 @@ defmodule Xeno.Files.DirectoryTest do
 
   describe "calculations" do
     test "filename" do
-      %{ id: id } = generate(directory(path: "etc/passwd"))
+      %{id: id} = generate(directory(path: "etc/passwd"))
 
       dir = Ash.get!(Directory, id, load: [:filename])
-     
+
       assert "passwd" == dir.filename
     end
 
-    test "filesystem_path" do
-      %{ id: id } = generate(directory(path: "etc/passwd"))
+    test "path" do
+      %{id: id} = generate(directory(path: "etc/passwd"))
 
       dir = Ash.get!(Directory, id, load: [:filesystem_path])
 
@@ -349,18 +359,20 @@ defmodule Xeno.Files.DirectoryTest do
 
   describe "playground" do
     test "see sql" do
-      query =  Ash.Query.for_read(Directory, :read)
+      query =
+        Ash.Query.for_read(Directory, :read)
         |> Ash.Query.filter(path == "etc.passwd")
         |> Ash.Query.load(:filesystem_path)
 
-      {:ok, data_layer_query } = Ash.data_layer_query(query)
+      {:ok, data_layer_query} = Ash.data_layer_query(query)
 
       assert %Ecto.Query{} = data_layer_query.query
 
       {sql, args} = Xeno.Repo.to_sql(:all, data_layer_query.query)
 
       assert args == ["etc.passwd"]
-      assert is_binary(sql) # this is the sql
+      # this is the sql
+      assert is_binary(sql)
     end
   end
 
@@ -393,9 +405,26 @@ defmodule Xeno.Files.DirectoryTest do
     test "by_path action" do
       generate(directory(path: "etc/passwd"))
 
-      dir = Ash.Query.for_read(Directory, :by_path, %{ path: "etc/passwd" }) |> Ash.read_one!()
+      dir = Ash.Query.for_read(Directory, :by_path, %{path: "etc/passwd"}) |> Ash.read_one!()
 
       assert dir.filename == "passwd"
+    end
+
+    test "descendants_of action" do
+      parent = generate(directory(path: "etc"))
+
+      generate(directory(path: "etc/passwd"))
+      generate(directory(path: "etc/iwd"))
+
+      dirs =
+        Ash.Query.for_read(Directory, :descendants_of, %{parent: parent}, load: :parent)
+        |> Ash.read!()
+
+      iwd = find_by_filename(dirs, "iwd")
+      passwd = find_by_filename(dirs, "passwd")
+
+      assert iwd.parent.id == parent.id
+      assert passwd.parent.id == parent.id
     end
 
     test "by_path code interface" do
@@ -412,6 +441,51 @@ defmodule Xeno.Files.DirectoryTest do
       dir = Directory.by_path!("/etc/passwd")
 
       assert dir.filename == "passwd"
+    end
+  end
+
+  describe "move action" do
+    test "new_path calculation" do
+      generate(directory(path: "some/deep/directory/tree"))
+
+      dir =
+        Ash.Query.for_read(Directory, :by_path, %{path: "some/deep/directory/tree"})
+        |> Directory.NewPath.add_calculation(~w"some very nice", ~w"some deep")
+        |> Ash.read_one!()
+
+      assert dir.calculations.new_path == ["some", "very", "nice", "directory", "tree"]
+    end
+
+    test "move action changes path" do
+      dir = generate(directory(path: "some/deep/tree"))
+
+      dir =
+        dir
+        |> Ash.Changeset.for_update(:move, %{path: "other/dir"}, load: [:filename, :path])
+        |> Ash.update!()
+
+      assert dir.path == "other/dir"
+      assert dir.filename == "dir"
+    end
+
+    test "move action moves the descendants" do
+      dir = generate(directory(path: "some/dir"))
+      generate(directory(path: "some/dir/child"))
+      generate(directory(path: "some/dir/child/grandson"))
+      generate(directory(path: "some/dir/child/granddaughter"))
+
+      dir =
+        dir
+        |> Ash.Changeset.for_update(:move, %{path: "some/very/new"},
+          load: [:filename, :path, :descendants]
+        )
+        |> Ash.update!()
+
+      assert Enum.map(dir.descendants, & &1.path) == [
+               "some/very/new/child/grandson",
+               "some/very/new/child/granddaughter",
+               "some/very/new/child"
+             ]
     end
   end
 

@@ -34,6 +34,8 @@ defmodule Xeno.Files.Directory do
   end
 
   actions do
+    defaults [:destroy, update: [:name]]
+
     read :read do
       primary? true
       description "Read directories from the database"
@@ -166,11 +168,13 @@ defmodule Xeno.Files.Directory do
     calculate :filesystem_path,
               :string,
               expr(fragment("'/' || replace(ltree2text(?), '.', '/')", path))
+
+    calculate :depth, :integer, expr(fragment("nlevel(?)", path))
   end
 
   identities do
     identity :unique_path, [:path] do
-      description "Ensures direcorty paths have to be unique"
+      description "Ensures directory paths have to be unique"
     end
   end
 

@@ -90,6 +90,7 @@ defmodule XenoWeb do
       # Common modules used in templates
       alias Phoenix.LiveView.JS
       alias XenoWeb.Layouts
+      alias XenoWeb.Components.Navigation
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())

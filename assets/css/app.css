@@ -106,3 +106,25 @@
 }
 
 /* This file is for your main application CSS */
+
+.directory {
+  details:open>summary {
+    & .icon-open {
+      display: inline;
+    }
+
+    & .icon {
+      display: none;
+    }
+  }
+
+  details>summary {
+    & .icon-open {
+      display: none;
+    }
+
+    & .icon {
+      display: inline;
+    }
+  }
+}
