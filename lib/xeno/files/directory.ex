@@ -22,7 +22,7 @@ defmodule Xeno.Files.Directory do
     repo Xeno.Repo
 
     custom_indexes do
-      index :path, using: "GIST"
+      index :path_ltree, using: "GIST"
     end
   end
 
@@ -57,12 +57,14 @@ defmodule Xeno.Files.Directory do
     end
 
     create :upsert do
-      description "Creates a new directory unless the same filename exists within the same parent directory, in which case it returns the existing directory."
+      description "Creates a new directory unless the same path exists, in which case it returns the existing directory."
 
       accept [:name]
 
       argument :path, :string do
         allow_nil? false
+        constraints match: ~r/^[[:alnum:]\/_]*$/,
+                    min_length: 3
       end
 
       upsert? true
@@ -98,17 +100,17 @@ defmodule Xeno.Files.Directory do
       end
 
       prepare fn %{arguments: args} = query, _context ->
-        Ash.Query.filter(query, path: [eq: path_to_ltree(args.path)])
+        Ash.Query.filter(query, path_ltree: [eq: path_to_ltree(args.path)])
       end
     end
   end
 
   preparations do
-    prepare build(load: [:filename])
+    prepare build(load: [:filename, :path])
   end
 
   changes do
-    change load(:filename) do
+    change load([:filename, :path]) do
       on [:create, :update]
     end
   end
@@ -122,7 +124,7 @@ defmodule Xeno.Files.Directory do
       description "UI friendly name for the directory, may contain spaces and special characters"
     end
 
-    attribute :path, AshPostgres.Ltree do
+    attribute :path_ltree, AshPostgres.Ltree do
       allow_nil? false
       description "filesystem path to the directory"
     end
@@ -137,10 +139,10 @@ defmodule Xeno.Files.Directory do
       filter expr(
                fragment(
                  "(ltree2text(?) || '.' || ?)::lquery ~ ?",
-                 path,
+                 path_ltree,
                  # parent() is self
                  parent(filename),
-                 parent(path)
+                 parent(path_ltree)
                )
              )
 
@@ -149,31 +151,31 @@ defmodule Xeno.Files.Directory do
 
     has_many :children, __MODULE__ do
       no_attributes? true
-      filter expr(fragment("? ~ (ltree2text(?) || '.*{1}')::lquery", path, parent(path)))
-      sort path: :desc
+      filter expr(fragment("? ~ (ltree2text(?) || '.*{1}')::lquery", path_ltree, parent(path_ltree)))
+      sort path_ltree: :desc
       description "The list of directories contained by this directory"
     end
 
     has_many :descendants, __MODULE__ do
       no_attributes? true
-      filter expr(fragment("? <@ ?", path, parent(path)))
-      sort path: :desc
+      filter expr(fragment("? <@ ?", path_ltree, parent(path_ltree)))
+      sort path_ltree: :desc
       description "The list of descendant directories contained by this directory at any level"
     end
   end
 
   calculations do
-    calculate :filename, :string, expr(fragment("subpath(?, -1)", path))
+    calculate :filename, :string, expr(fragment("subpath(?, -1)", path_ltree))
 
-    calculate :filesystem_path,
+    calculate :path,
               :string,
-              expr(fragment("'/' || replace(ltree2text(?), '.', '/')", path))
+              expr(fragment("replace(ltree2text(?), '.', '/')", path_ltree))
 
-    calculate :depth, :integer, expr(fragment("nlevel(?)", path))
+    calculate :depth, :integer, expr(fragment("nlevel(?)", path_ltree))
   end
 
   identities do
-    identity :unique_path, [:path] do
+    identity :unique_path, [:path_ltree] do
       description "Ensures directory paths have to be unique"
     end
   end

@@ -35,7 +35,7 @@ defmodule Xeno.Files.DirectoryTest do
       dir = generate(directory())
 
       assert %Directory{} = dir
-      assert List.last(dir.path) == dir.filename
+      assert List.last(dir.path_ltree) == dir.filename
       assert is_binary(dir.name)
     end
 
@@ -55,18 +55,20 @@ defmodule Xeno.Files.DirectoryTest do
     test "creates a Directory" do
       docs = Directory.create!("docs", load: [:filename])
 
-      assert docs.path == [docs.filename]
+      assert docs.path_ltree == [docs.filename]
+      assert docs.path == docs.filename
 
       tut = Directory.create!("docs/tuts", %{name: "Tutorial"}, load: [:filename])
 
-      assert tut.path == ["docs", tut.filename]
+      assert tut.path_ltree == ["docs", tut.filename]
+      assert tut.path == "docs/tuts"
       assert tut.name == "Tutorial"
 
       # path defines identity
       assert docs.id == Directory.get_or_create!(docs.filename).id
 
       assert "Tutorial" ==
-               Directory.get_or_create!(Path.join(tut.path), %{name: "Hello"}).name
+               Directory.get_or_create!(tut.path, %{name: "Hello"}).name
 
       assert "Sci-enz" ==
                Directory.get_or_create!("science", %{name: "Sci-enz"}).name
@@ -75,7 +77,8 @@ defmodule Xeno.Files.DirectoryTest do
     test "creates a subdirectory" do
       dir = Directory.create!("docs/taxes")
 
-      assert dir.path == ["docs", "taxes"]
+      assert dir.path_ltree == ["docs", "taxes"]
+      assert dir.path == "docs/taxes"
       assert dir.name == "Taxes"
     end
 
@@ -88,7 +91,7 @@ defmodule Xeno.Files.DirectoryTest do
     test "can deal with root dir" do
       dir = Directory.create!("/etc/passwd")
 
-      assert dir.path == ["etc", "passwd"]
+      assert dir.path == "etc/passwd"
     end
   end
 
@@ -112,7 +115,7 @@ defmodule Xeno.Files.DirectoryTest do
     test "returns existing" do
       dir = Directory.create!("docs/taxes")
 
-      assert directory = dir.path |> Path.join() |> Directory.get_or_create!()
+      assert directory = Directory.get_or_create!(dir.path)
 
       assert dir.id == directory.id
     end
@@ -240,9 +243,9 @@ defmodule Xeno.Files.DirectoryTest do
     test "path" do
       %{id: id} = generate(directory(path: "etc/passwd"))
 
-      dir = Ash.get!(Directory, id, load: [:filesystem_path])
+      dir = Ash.get!(Directory, id, load: [:path])
 
-      assert "/etc/passwd" == dir.filesystem_path
+      assert "etc/passwd" == dir.path
     end
   end
 
@@ -362,7 +365,7 @@ defmodule Xeno.Files.DirectoryTest do
       query =
         Ash.Query.for_read(Directory, :read)
         |> Ash.Query.filter(path == "etc.passwd")
-        |> Ash.Query.load(:filesystem_path)
+        |> Ash.Query.load(:path)
 
       {:ok, data_layer_query} = Ash.data_layer_query(query)
 
@@ -380,7 +383,7 @@ defmodule Xeno.Files.DirectoryTest do
     test "by path equality" do
       generate(directory(path: "etc/passwd"))
 
-      dir = Ash.Query.filter(Directory, path == "etc.passwd") |> Ash.read_one!()
+      dir = Ash.Query.filter(Directory, path_ltree == "etc.passwd") |> Ash.read_one!()
 
       assert dir.filename == "passwd"
     end
@@ -388,7 +391,7 @@ defmodule Xeno.Files.DirectoryTest do
     test "by path array" do
       generate(directory(path: "etc/passwd"))
 
-      dir = Ash.Query.filter(Directory, path == ["etc", "passwd"]) |> Ash.read_one!()
+      dir = Ash.Query.filter(Directory, path_ltree == ["etc", "passwd"]) |> Ash.read_one!()
 
       assert dir.filename == "passwd"
     end
@@ -397,7 +400,7 @@ defmodule Xeno.Files.DirectoryTest do
       generate(directory(path: "etc/passwd"))
       p = ["etc", "passwd"]
 
-      dir = Ash.Query.filter(Directory, path == ^p) |> Ash.read_one!()
+      dir = Ash.Query.filter(Directory, path_ltree == ^p) |> Ash.read_one!()
 
       assert dir.filename == "passwd"
     end
