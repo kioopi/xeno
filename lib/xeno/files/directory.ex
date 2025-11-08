@@ -13,7 +13,8 @@ defmodule Xeno.Files.Directory do
 
   alias Xeno.Files
   alias Files.Changes
-  alias Files.Directory.RecursiveCreate
+  alias Files.Directory
+  alias Directory.RecursiveCreate
 
   require Ash.Query
 
@@ -165,13 +166,9 @@ defmodule Xeno.Files.Directory do
   end
 
   calculations do
-    calculate :filename, :string, expr(fragment("subpath(?, -1)", path_ltree))
-
-    calculate :path,
-              :string,
-              expr(fragment("replace(ltree2text(?), '.', '/')", path_ltree))
-
-    calculate :depth, :integer, expr(fragment("nlevel(?)", path_ltree))
+    calculate :filename, :string, Directory.Filename
+    calculate :path, :string, Directory.Path
+    calculate :depth, :integer, Directory.Depth
   end
 
   identities do
