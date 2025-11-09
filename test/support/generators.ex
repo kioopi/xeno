@@ -35,29 +35,42 @@ defmodule Xeno.Generators do
       Directory,
       :create,
       uses: [
-        params: params_generator(path_generator)
+        defaults: defaults_generator(path_generator)
       ],
-      defaults: fn %{params: params} ->
-        [
-          name: params.name,
-          path: params.path
-        ]
-      end,
-      overrides: opts
+      defaults: & &1.defaults,
+      overrides: overrides(opts)
     )
   end
 
-  def params_generator(genarator) do
+  defp defaults_generator(genarator) do
     StreamData.repeatedly(fn ->
       path =
         genarator
         |> Enum.take(1)
         |> List.first()
 
-      %{
+      [
         path: Path.join(path),
         name: List.last(path) |> String.capitalize()
-      }
+      ]
     end)
   end
+
+  defp overrides(opts) do
+    set_name(opts, opts[:name], opts[:path])
+  end
+
+  defp set_name(opts, _, nil), do: opts
+
+  defp set_name(opts, nil, path) do
+    name =
+      path
+      |> String.split("/")
+      |> List.last()
+      |> String.capitalize()
+
+    Keyword.put(opts, :name, name)
+  end
+
+  defp set_name(opts, _, _), do: opts
 end
