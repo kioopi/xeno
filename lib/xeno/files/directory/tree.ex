@@ -2,8 +2,7 @@ defmodule Xeno.Files.Directory.Tree do
   @moduledoc """
   Builds a nested tree structure from Directory records using their ltree paths.
 
-  This module provides efficient O(n) tree construction by leveraging PostgreSQL's
-  ltree extension and Elixir's immutable data structures. The algorithm makes two
+  The algorithm makes two
   passes over the directory list to build a complete hierarchical tree.
 
   ## Tree Structure
@@ -95,7 +94,7 @@ defmodule Xeno.Files.Directory.Tree do
     # Load directories sorted by path (parents before children) with filename
     dirs =
       query
-      |> Ash.Query.sort(:path)
+      |> Ash.Query.sort(:path_ltree)
       |> Ash.Query.load([:depth, :parent])
       |> Ash.read!()
 
@@ -109,6 +108,164 @@ defmodule Xeno.Files.Directory.Tree do
     |> root_directories_with_children(roots)
   end
 
+  @doc """
+  Finds the root ancestor for a given directory.
+
+  This function efficiently finds the root directory by using the ltree path
+  structure instead of recursively traversing parent relationships. It extracts
+  the first segment of the directory's ltree path and queries for that root,
+  resulting in O(1) database queries regardless of nesting depth.
+
+  ## Parameters
+
+    * `directory` - A Directory struct (must have path_ltree loaded)
+
+  ## Returns
+
+  The root Directory struct for the given directory's tree.
+
+  ## Examples
+
+      # For a nested directory like "/docs/guides/intro"
+      directory = Directory.by_path!("/docs/guides/intro")
+      root = Directory.Tree.find_root_ancestor(directory)
+      # Returns the Directory with path "/docs"
+
+      # For a root directory
+      root = Directory.by_path!("/docs")
+      root = Directory.Tree.find_root_ancestor(root)
+      # Returns itself (the Directory with path "/docs")
+
+  ## Performance
+
+  This function uses ltree path analysis for O(1) query complexity:
+  - Traditional approach: O(depth) queries (traverse parent chain)
+  - Ltree approach: O(1) queries (extract root segment, query once)
+
+  For a directory nested 10 levels deep, this saves 9 database queries.
+  """
+  def find_root_ancestor(%Xeno.Files.Directory{path_ltree: path_ltree} = dir) do
+    # Extract first segment of ltree path (the root)
+    [root_segment | _] = path_ltree
+
+    if length(path_ltree) == 1 do
+      # Already at root, return self
+      dir
+    else
+      # Query for directory with single-segment path (the root)
+      # Uses existing by_path action which leverages ltree indexing
+      Xeno.Files.Directory.by_path!("/#{root_segment}")
+    end
+  end
+
+  @doc """
+  Builds a tree branch for a single root directory and all its descendants.
+
+  This function efficiently constructs a tree structure for a specific root
+  directory by leveraging the ltree-optimized `descendants_of` query, then
+  using the same two-pass algorithm as `build/0` to create the nested structure.
+
+  ## Parameters
+
+    * `root_id` - The ID of the root directory to build a branch for
+
+  ## Returns
+
+  A single tuple of `{directory, children}` representing the root and its
+  complete subtree. Unlike `build/0` which returns a list of root tuples,
+  this returns just one tuple for the specified root.
+
+  ## Examples
+
+      # Build a branch for a specific root
+      root = Directory.by_path!("/docs")
+      branch = Directory.Tree.build_branch(root.id)
+      # Returns: {%Directory{path: "/docs"}, [{%Directory{path: "/docs/guides"}, [...]}]}
+
+      # Root with no children
+      root = Directory.by_path!("/empty")
+      branch = Directory.Tree.build_branch(root.id)
+      # Returns: {%Directory{path: "/empty"}, []}
+  """
+  def build_branch(root_id) when is_binary(root_id) do
+    # Load root directory
+    root =
+      Xeno.Files.Directory.get!(
+        root_id,
+        load: [:depth, :parent]
+      )
+
+    # Build tree using same algorithm as build/0 but for this subset
+    # Get all descendants. Descendants can be loaded via the relationship
+    # in Directory with one query. But that is ordered in the wrong order
+    # and i didnt find a way to specify order there, so we use a separate query.
+    descendants =
+      Xeno.Files.Directory.descendants_of!(root)
+      |> Ash.load!([:depth, :parent])
+
+    all_dirs = [root | descendants]
+
+    # Pass 1: Initialize map with all directories and empty children lists
+    {tree_map, _roots} = map_directories_by_path(all_dirs)
+
+    # Pass 2: Populate children by iterating in reverse (deepest first)
+    assign_directories_to_parents(tree_map, all_dirs)
+    # Extract and return just the single root branch (not a list)
+    |> Map.fetch!(root.path)
+  end
+
+  @doc """
+  Updates a tree by replacing or adding a branch for a specific root.
+
+  This pure function takes an existing tree and updates it with a new branch
+  for a given root directory. If the root exists in the tree, its branch is
+  replaced. If not, the new branch is appended.
+
+  ## Parameters
+
+    * `tree` - The existing tree (list of root tuples)
+    * `root_id` - The ID of the root directory to update
+    * `new_branch` - The new branch tuple `{directory, children}` to insert
+
+  ## Returns
+
+  An updated tree with the new branch inserted or replaced. Unchanged branches
+  remain untouched (same object references), making this efficient for LiveView
+  updates where only affected branches need to re-render.
+
+  ## Examples
+
+      # Replace an existing branch
+      tree = Directory.Tree.build(Directory)
+      root = Directory.by_path!("/docs")
+      new_branch = Directory.Tree.build_branch(root.id)
+      updated_tree = Directory.Tree.update_tree(tree, root.id, new_branch)
+
+      # Add a new branch
+      tree = Directory.Tree.build(Directory)
+      new_root = Directory.create!("/new")
+      new_branch = Directory.Tree.build_branch(new_root.id)
+      updated_tree = Directory.Tree.update_tree(tree, new_root.id, new_branch)
+      # Tree now contains the original roots plus the new one
+
+  ## Performance
+
+  This is a pure Elixir function with O(n) complexity where n is the number of
+  roots in the tree. Unchanged branches are not modified, preserving object
+  identity for efficient change detection in Phoenix LiveView.
+  """
+  def update_tree(tree, root_id, new_branch) do
+    case Enum.find_index(tree, fn {dir, _children} -> dir.id == root_id end) do
+      nil ->
+        # Root not in tree, append it
+        tree ++ [new_branch]
+
+      index ->
+        # Replace at index
+        List.replace_at(tree, index, new_branch)
+    end
+  end
+
   # Creates the initial tree map and collects root directory paths.
   #
   # Pass 1 of the algorithm: Iterates through all directories to:
@@ -119,7 +276,7 @@ defmodule Xeno.Files.Directory.Tree do
   # Roots are collected in reverse order and then reversed again to maintain original order.
   #
   # Returns: {tree_map, root_paths}
-  defp map_directories_by_path(directories, fun) do
+  defp map_directories_by_path(directories, fun \\ fn dir -> dir end) do
     {tree, roots} =
       Enum.reduce(directories, {%{}, []}, fn dir, {tree, roots} ->
         {Map.put(tree, dir.path, {fun.(dir), []}), collect_roots(roots, dir)}

@@ -9,7 +9,11 @@ defmodule Xeno.Files.Directory do
   Uniqueness is enforced on the combination of filename and parent_id, ensuring
   no duplicate filenames exist within the same parent directory or at the root level.
   """
-  use Ash.Resource, otp_app: :xeno, domain: Xeno.Files, data_layer: AshPostgres.DataLayer
+  use Ash.Resource,
+    otp_app: :xeno,
+    domain: Xeno.Files,
+    data_layer: AshPostgres.DataLayer,
+    notifiers: [Ash.Notifier.PubSub]
 
   alias Xeno.Files
   alias Files.Changes
@@ -28,10 +32,15 @@ defmodule Xeno.Files.Directory do
   end
 
   code_interface do
+    define :get, action: :read, get_by: [:id]
     define :get_or_create, action: :upsert, args: [:path]
     define :create, action: :create, args: [:path]
     define :create_from_filesystem, args: [:path]
     define :by_path, args: [:path], get?: true
+    define :descendants_of, args: [:parent]
+    define :update, action: :update
+    define :move, action: :move
+    define :destroy, action: :destroy
   end
 
   actions do
@@ -128,6 +137,8 @@ defmodule Xeno.Files.Directory do
         |> Ash.Query.put_context(:id, args.parent.id)
       end
 
+      prepare build(sort: [:path_ltree])
+
       filter expr(
                fragment("? <@ ?", path_ltree, ^context(:path_ltree)) and
                  id != ^context(:id)
@@ -166,6 +177,18 @@ defmodule Xeno.Files.Directory do
         )
       end
     end
+  end
+
+  pub_sub do
+    module XenoWeb.Endpoint
+    prefix "directory"
+
+    publish :create, "created"
+    publish :update, "updated"
+    publish :move, "moved"
+    publish :destroy, "destroyed"
+
+    broadcast_type :phoenix_broadcast
   end
 
   preparations do
