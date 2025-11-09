@@ -459,7 +459,7 @@ defmodule Xeno.Files.DirectoryTest do
       assert dir.calculations.new_path == ["some", "very", "nice", "directory", "tree"]
     end
 
-    test "move action changes path" do
+    test "changes path" do
       dir = generate(directory(path: "some/deep/tree"))
 
       dir =
@@ -471,7 +471,7 @@ defmodule Xeno.Files.DirectoryTest do
       assert dir.filename == "dir"
     end
 
-    test "move action moves the descendants" do
+    test "moves the descendants" do
       dir = generate(directory(path: "some/dir"))
       generate(directory(path: "some/dir/child"))
       generate(directory(path: "some/dir/child/grandson"))
@@ -489,6 +489,34 @@ defmodule Xeno.Files.DirectoryTest do
                "some/very/new/child/granddaughter",
                "some/very/new/child"
              ]
+    end
+
+    test "can move from root" do
+      dir = generate(directory(path: "dir"))
+      generate(directory(path: "other"))
+      generate(directory(path: "dir/child"))
+
+      dir =
+        dir
+        |> Ash.Changeset.for_update(:move, %{path: "other/dir"},
+          load: [:filename, :path, :descendants]
+        )
+        |> Ash.update!()
+
+      assert List.first(dir.descendants).path == "other/dir/child"
+    end
+
+    test "can move to root" do
+      dir = generate(directory(path: "some/deep/dir"))
+      generate(directory(path: "some/deep/dir/child"))
+
+      dir =
+        dir
+        |> Ash.Changeset.for_update(:move, %{path: "dir"}, load: [:filename, :path, :descendants])
+        |> Ash.update!()
+
+      assert dir.path == "dir"
+      assert List.first(dir.descendants).path == "dir/child"
     end
   end
 

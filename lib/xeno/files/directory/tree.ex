@@ -9,7 +9,7 @@ defmodule Xeno.Files.Directory.Tree do
   Example output: [{dir1, [{dir11, []}]}, {dir2, []}]
   """
 
-  def build(query \\ Xeno.Files.Directory) do
+  def build(query \\ Xeno.Files.Directory, fun \\ fn dir -> dir end) do
     # Load directories sorted by path (parents before children) with filename
     dirs =
       query
@@ -18,7 +18,7 @@ defmodule Xeno.Files.Directory.Tree do
       |> Ash.read!()
 
     # Pass 1: Initialize map with all directories and empty children lists
-    {tree_map, roots} = map_directories_by_path(dirs)
+    {tree_map, roots} = map_directories_by_path(dirs, fun)
 
     # Pass 2: Populate children by iterating in reverse (deepest first)
     # This ensures each directory already has its children when added to parent
@@ -27,10 +27,10 @@ defmodule Xeno.Files.Directory.Tree do
     |> root_directories_with_children(roots)
   end
 
-  defp map_directories_by_path(directories) do
+  defp map_directories_by_path(directories, fun) do
     {tree, roots} =
       Enum.reduce(directories, {%{}, []}, fn dir, {tree, roots} ->
-        {Map.put(tree, dir.path, {dir, []}), collect_roots(roots, dir)}
+        {Map.put(tree, dir.path, {fun.(dir), []}), collect_roots(roots, dir)}
       end)
 
     {tree, Enum.reverse(roots)}
@@ -63,8 +63,8 @@ defmodule Xeno.Files.Directory.Tree do
   end
 
   defp append_child(tree, path, child) do
-    Map.update!(tree, path, fn {name, children} ->
-      {name, [child | children]}
+    Map.update!(tree, path, fn {dir, children} ->
+      {dir, [child | children]}
     end)
   end
 end

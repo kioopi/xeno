@@ -64,6 +64,7 @@ defmodule Xeno.Files.Directory do
 
       argument :path, :string do
         allow_nil? false
+
         constraints match: ~r/^[[:alnum:]\/_]*$/,
                     min_length: 3
       end
@@ -98,10 +99,71 @@ defmodule Xeno.Files.Directory do
 
       argument :path, :string do
         allow_nil? false
+
+        constraints match: ~r/^[[:alnum:]\/_]*$/,
+                    min_length: 3
       end
 
       prepare fn %{arguments: args} = query, _context ->
-        Ash.Query.filter(query, path_ltree: [eq: path_to_ltree(args.path)])
+        Ash.Query.put_context(query, :path, path_to_ltree(args.path))
+      end
+
+      filter expr(path_ltree == ^context(:path))
+    end
+
+    read :descendants_of do
+      description "Read a directory by its filesystem path"
+      pagination offset?: true, keyset?: true, required?: false
+
+      argument :parent, :struct do
+        allow_nil? false
+        constraints instance_of: __MODULE__
+      end
+
+      prepare fn %{arguments: args} = query, _context ->
+        {:ok, ltree} = AshPostgres.Ltree.dump_to_native(args.parent.path_ltree, nil)
+
+        query
+        |> Ash.Query.put_context(:path_ltree, ltree)
+        |> Ash.Query.put_context(:id, args.parent.id)
+      end
+
+      filter expr(
+               fragment("? <@ ?", path_ltree, ^context(:path_ltree)) and
+                 id != ^context(:id)
+             )
+    end
+
+    update :move do
+      description "Move a directory to a new parent directory"
+      require_atomic? false
+
+      argument :path, :string do
+        allow_nil? false
+
+        constraints match: ~r/^[[:alnum:]\/_]*$/,
+                    min_length: 3
+      end
+
+      change Changes.SetPath
+      change Changes.MoveDescendants
+    end
+
+    update :parent_moved do
+      require_atomic? false
+
+      description """
+        Used in the MoveDescendants change to update the path_ltree after the parent has moved.
+        Requires a calculation `new_path` to be defined that provides the updated path_ltree value.
+        I see no reason why this couldn't be atomic but the Ltree Type does not support it.
+      """
+
+      change fn changeset, _context ->
+        Ash.Changeset.change_attribute(
+          changeset,
+          :path_ltree,
+          changeset.data.calculations.new_path
+        )
       end
     end
   end
@@ -152,14 +214,18 @@ defmodule Xeno.Files.Directory do
 
     has_many :children, __MODULE__ do
       no_attributes? true
-      filter expr(fragment("? ~ (ltree2text(?) || '.*{1}')::lquery", path_ltree, parent(path_ltree)))
+
+      filter expr(
+               fragment("? ~ (ltree2text(?) || '.*{1}')::lquery", path_ltree, parent(path_ltree))
+             )
+
       sort path_ltree: :desc
       description "The list of directories contained by this directory"
     end
 
     has_many :descendants, __MODULE__ do
       no_attributes? true
-      filter expr(fragment("? <@ ?", path_ltree, parent(path_ltree)))
+      filter expr(fragment("? <@ ?", path_ltree, parent(path_ltree)) and not id == parent(id))
       sort path_ltree: :desc
       description "The list of descendant directories contained by this directory at any level"
     end
