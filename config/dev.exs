@@ -1,5 +1,6 @@
 import Config
 config :ash, policies: [show_policy_breakdowns?: true]
+config :ash, :pub_sub, debug?: true
 
 # Configure notes directory
 # :code.priv_dir(:xeno)

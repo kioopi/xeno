@@ -23,4 +23,62 @@ defmodule XenoWeb.InfoLiveTest do
 
     assert has_element?(view, "dd", Xeno.notes_dir())
   end
+
+  describe "auto-refresh" do
+    test "automatically shows new directory when created", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Initially no directory with this name
+      refute has_element?(view, "details", "Newtestdir")
+
+      # Create directory (triggers PubSub broadcast)
+      _new_dir = Xeno.Files.Directory.create!("newtestdir")
+
+      # Should automatically appear in the tree
+      assert has_element?(view, "details", "Newtestdir")
+    end
+
+    test "shows new nested directory under correct parent", %{conn: conn} do
+      # Create root directory first
+      _root = Xeno.Files.Directory.create!("parentroot")
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Root should be visible
+      assert has_element?(view, "details", "Parentroot")
+
+      # Child should not exist yet
+      refute has_element?(view, "details", "Childnested")
+
+      # Create child (triggers PubSub broadcast)
+      _child = Xeno.Files.Directory.create!("parentroot/childnested")
+
+      # Should appear nested under root
+      assert has_element?(view, "details", "Parentroot")
+      assert has_element?(view, "details", "Childnested")
+    end
+
+    test "verifies pubsub broadcast actually happens and LiveView receives it", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Subscribe to the same topic as LiveView
+      Phoenix.PubSub.subscribe(Xeno.PubSub, "directory:created")
+
+      # Create directory (triggers PubSub broadcast)
+      _dir = Xeno.Files.Directory.create!("integrationtest")
+
+      # Wait for and verify we receive the PubSub broadcast
+      assert_receive %Phoenix.Socket.Broadcast{
+                       topic: "directory:created",
+                       event: "create",
+                       payload: %Phoenix.Socket.Broadcast{
+                         payload: %Ash.Notifier.Notification{}
+                       }
+                     },
+                     1000
+
+      # Now verify LiveView also received it and updated
+      assert has_element?(view, "details", "Integrationtest")
+    end
+  end
 end
