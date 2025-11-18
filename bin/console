@@ -1,0 +1,13 @@
+#!/bin/bash
+# Connect to a running Phoenix server started with ./server
+#
+# Usage:
+#   ./console
+#
+# This connects to the server started with ./server and gives you a remote IEx shell
+# in the same Erlang VM, allowing you to:
+# - Create directories and see live updates in the browser
+# - Debug the running application
+# - Inspect processes and state
+
+iex --sname console@localhost --remsh xeno@localhost
