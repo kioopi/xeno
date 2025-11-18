@@ -1,8 +1,8 @@
 <Layouts.app flash={@flash}>
-  <div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="max-w-7xl mx-auto px-4 py-8">
     <h1 class="text-3xl font-bold text-gray-900 mb-8">Xeno Installation Information</h1>
 
-    <div class="bg-white shadow rounded-lg p-6">
+    <div class="bg-white shadow rounded-lg p-6 mb-8">
       <div class="space-y-4">
         <div>
           <dt class="text-sm font-medium text-gray-500 mb-1">Notes Directory</dt>
@@ -13,6 +13,16 @@
       </div>
     </div>
 
-    <Navigation.file_tree directories={@directories} />
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div>
+        <h2 class="text-xl font-semibold mb-4">Current Implementation (HTML Details)</h2>
+        <Navigation.file_tree directories={@directories} />
+      </div>
+
+      <div>
+        <h2 class="text-xl font-semibold mb-4">WebAwesome Component</h2>
+        <Navigation.webawesome_file_tree directories={@directories} />
+      </div>
+    </div>
   </div>
 </Layouts.app>

@@ -1,6 +1,9 @@
 import Config
 config :ash, policies: [show_policy_breakdowns?: true], disable_async?: true
 
+# Configure phoenix_test
+config :phoenix_test, :endpoint, XenoWeb.Endpoint
+
 # Configure notes directory
 config :xeno,
   notes_directory: "test/notes/",

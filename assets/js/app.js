@@ -30,6 +30,17 @@ const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
   hooks: { ...colocatedHooks },
+  dom: {
+    onBeforeElUpdated: (from, to) => {
+      // Preserve Web Component attributes during LiveView morphdom updates
+      // This prevents WebAwesome components from losing their state
+      if (from.tagName && from.tagName.startsWith("WA-")) {
+        [...to.attributes, ...from.attributes].forEach((attr) => {
+          to.setAttribute(attr.name, attr.value);
+        });
+      }
+    },
+  },
 })
 
 // Show progress bar on live navigation and form submits

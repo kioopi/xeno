@@ -33,18 +33,41 @@ defmodule XenoWeb.Components.Navigation do
     """
   end
 
+  @doc """
+  Renders a WebAwesome-based directory tree
+
+  ## Examples
+
+      <.webawesome_file_tree directories={@directories} />
+  """
+  attr :directories, :list, required: true
+  attr :class, :string, default: ""
+
+  def webawesome_file_tree(assigns) do
+    ~H"""
+    <wa-tree id="webawesome-directory-tree" class="w-full">
+      <wa-tree-item :for={{directory, _children} <- @directories} expanded>
+        <wa-icon name="folder" slot="expand-icon"></wa-icon>
+        <wa-icon name="folder-open" slot="collapse-icon"></wa-icon>
+        {directory.name}
+      </wa-tree-item>
+    </wa-tree>
+    """
+  end
+
   attr :directory, :any, required: true
   attr :children, :list, default: []
   attr :class, :string, default: nil
 
-  def directory(%{ directory: directory, class: class } = assigns) do
+  def directory(%{directory: directory, class: class} = assigns) do
     group = "#{directory.filename}"
 
-    assigns = assign(assigns, :class, Enum.join([class, "group/#{group}"], " "))
+    assigns =
+      assign(assigns, :class, Enum.join([class, "group/#{group}"], " "))
       |> assign(:group, group)
 
     ~H"""
-    <li class="directory">
+    <li class="directory mb-2">
       <details open class={@class}>
         <summary>
           <.icon name="hero-folder" class="h-4 w-4 icon" />
