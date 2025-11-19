@@ -46,12 +46,33 @@ defmodule XenoWeb.Components.Navigation do
   def webawesome_file_tree(assigns) do
     ~H"""
     <wa-tree id="webawesome-directory-tree" class="w-full">
-      <wa-tree-item :for={{directory, _children} <- @directories} expanded>
-        <wa-icon name="folder" slot="expand-icon"></wa-icon>
-        <wa-icon name="folder-open" slot="collapse-icon"></wa-icon>
-        {directory.name}
-      </wa-tree-item>
+      <.webawesome_tree_item
+        :for={{directory, children} <- @directories}
+        directory={directory}
+        children={children}
+      />
     </wa-tree>
+    """
+  end
+
+  @doc """
+  Renders a single WebAwesome tree item with recursive children
+  """
+  attr :directory, :any, required: true
+  attr :children, :list, default: []
+
+  def webawesome_tree_item(assigns) do
+    ~H"""
+    <wa-tree-item expanded>
+      <wa-icon name="folder" slot="expand-icon"></wa-icon>
+      <wa-icon name="folder-open" slot="collapse-icon"></wa-icon>
+      {@directory.name}
+      <.webawesome_tree_item
+        :for={{child_dir, child_children} <- @children}
+        directory={child_dir}
+        children={child_children}
+      />
+    </wa-tree-item>
     """
   end
 

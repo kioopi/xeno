@@ -30,5 +30,21 @@ defmodule XenoWeb.Features.WebAwesomeTreeTest do
       |> assert_has("wa-tree-item", text: "Test Dir 1")
       |> assert_has("wa-tree-item", text: "Test Dir 2")
     end
+
+    test "renders nested wa-tree-item elements for directory hierarchies" do
+      # Create a two-level nested structure (parent -> child)
+      # Start with something simpler that we know works in other tests
+      _parent = Xeno.Files.Directory.create!("treeparent")
+      _child = Xeno.Files.Directory.create!("treeparent/treechild")
+
+      session =
+        build_conn()
+        |> visit("/")
+
+      # Assert we have both levels in the tree
+      session
+      |> assert_has("wa-tree-item", text: "Treeparent")
+      |> assert_has("wa-tree-item", text: "Treechild")
+    end
   end
 end
