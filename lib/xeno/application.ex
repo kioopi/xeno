@@ -25,7 +25,8 @@ defmodule Xeno.Application do
   end
 
   @impl true
-  def start_phase(:create_dirs, _phase_type, notes_dir) do
+  def start_phase(:create_dirs, _phase_type, _params) do
+    notes_dir = Xeno.notes_dir()
     File.mkdir_p!(notes_dir)
     Xeno.Files.create_directories_from_filesystem!(notes_dir)
 

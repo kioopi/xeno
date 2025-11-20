@@ -106,7 +106,7 @@ defmodule Xeno.MixProject do
 
   defp start_phases do
     case Application.get_env(:xeno, :read_notes_on_startup, true) do
-      true -> [create_dirs: Xeno.notes_dir()]
+      true -> [create_dirs: []]
       false -> []
     end
   end
