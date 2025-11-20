@@ -16,26 +16,25 @@ defmodule Xeno.Content.NotePubSubTest do
   end
 
   test "broadcasts on note creation", %{directory: dir, note_type: type} do
-    {:ok, note} =
-      Note.create(%{
+    note =
+      Note.create!(%{
         name: "Broadcast Test",
         directory_id: dir.id,
         note_type_id: type.id
       })
 
-    assert_receive %Phoenix.Socket.Broadcast{
-                     topic: "note:created",
-                     event: "create",
-                     payload: %Phoenix.Socket.Broadcast{
-                       payload: %Ash.Notifier.Notification{
-                         data: ^note
-                       }
-                     }
-                   },
-                   1000
+    note_id = note.id
+
+    assert_receive(
+      %Phoenix.Socket.Broadcast{
+        topic: "note:created",
+        event: "create",
+        payload: %{id: ^note_id}
+      },
+      1000
+    )
   end
 
-  @tag :skip
   test "broadcasts on note update", %{directory: dir, note_type: type} do
     {:ok, note} =
       Note.create(%{
@@ -51,19 +50,13 @@ defmodule Xeno.Content.NotePubSubTest do
       100 -> :ok
     end
 
-    Phoenix.PubSub.subscribe(Xeno.PubSub, "note:#{note.id}:updated")
+    Phoenix.PubSub.subscribe(Xeno.PubSub, "note:updated:#{note.id}")
 
     {:ok, _updated} = Note.update(note, %{text: "Updated"})
 
-    assert_receive %Phoenix.Socket.Broadcast{
-                     topic: "note:updated"
-                   },
-                   1000
-
-    assert_receive %Phoenix.Socket.Broadcast{
-                     topic: "note:" <> _
-                   },
-                   1000
+    assert_receive(%Phoenix.Socket.Broadcast{
+      topic: "note:updated:" <> _
+    }, 1000)
   end
 
   test "broadcasts on note destruction", %{directory: dir, note_type: type} do

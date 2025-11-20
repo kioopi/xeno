@@ -64,11 +64,13 @@ defmodule Xeno.Content.Note do
     module XenoWeb.Endpoint
     prefix "note"
 
-    publish :create, "created"
-    publish :update, ["updated", ":id:updated"]
-    publish :destroy, "destroyed"
+    transform fn notification ->
+      Map.take(notification.data, [:id])
+    end
 
-    broadcast_type :phoenix_broadcast
+    publish :create, "created"
+    publish :update, ["updated", ["updated", :id]]
+    publish :destroy, "destroyed"
   end
 
   changes do

@@ -19,6 +19,9 @@ defmodule XenoWeb.Router do
 
     # get "/", PageController, :home
     live "/", InfoLive
+
+    live "/notes/:id", NoteShowLive
+    live "/notes/:id/edit", NoteEditLive
   end
 
   # Other scopes may use custom stacks.
