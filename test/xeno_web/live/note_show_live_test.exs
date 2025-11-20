@@ -2,29 +2,33 @@ defmodule XenoWeb.NoteShowLiveTest do
   use XenoWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
+  import Xeno.Generators
 
-  alias Xeno.Content.{Note, NoteType}
-  alias Xeno.Files.Directory
+  alias Xeno.Content.Note
 
   setup do
-    {:ok, directory} = Directory.create("test_notes")
+    directory = generate(directory(path: "test_notes"))
 
-    {:ok, note_type} =
-      NoteType.create(%{
-        name: "Test Type",
-        initial_text: "Initial content",
-        initial_tags: ["initial"]
-      })
+    note_type =
+      generate(
+        note_type(
+          name: "Test Type",
+          initial_text: "Initial content",
+          initial_tags: ["initial"]
+        )
+      )
 
-    {:ok, note} =
-      Note.create(%{
-        name: "Test Note",
-        text: "Test content here",
-        data: %{"key" => "value", "number" => 42},
-        tags: ["test", "example"],
-        directory_id: directory.id,
-        note_type_id: note_type.id
-      })
+    note =
+      generate(
+        note(
+          name: "Test Note",
+          text: "Test content here",
+          data: %{"key" => "value", "number" => 42},
+          tags: ["test", "example"],
+          directory_id: directory.id,
+          note_type_id: note_type.id
+        )
+      )
 
     {:ok, note: note, directory: directory, note_type: note_type}
   end
