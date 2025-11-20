@@ -177,6 +177,57 @@ defmodule Xeno.Files.Directory do
         )
       end
     end
+
+    action :tree, {:array, :term} do
+      description "Build hierarchical tree structure from all directories"
+
+      argument :transform, :term do
+        allow_nil? true
+        description "Optional function to transform each directory record in the tree"
+      end
+
+      run fn input, _context ->
+        transform_fn = input.arguments[:transform] || fn dir -> dir end
+
+        dirs =
+          __MODULE__
+          |> Ash.Query.sort(:path_ltree)
+          |> Ash.Query.load([:depth, :parent])
+          |> Ash.read!()
+
+        tree = Directory.Tree.build_from_list(dirs, transform_fn)
+
+        {:ok, tree}
+      end
+    end
+
+    action :branch, :term do
+      description "Build tree branch for a specific root directory and all its descendants"
+
+      argument :root_id, :uuid do
+        allow_nil? false
+        description "The ID of the root directory to build a branch for"
+      end
+
+      run fn input, _context ->
+        root =
+          Ash.get!(
+            __MODULE__,
+            input.arguments.root_id,
+            load: [:depth, :parent]
+          )
+
+        descendants =
+          __MODULE__
+          |> Ash.Query.for_read(:descendants_of, %{parent: root})
+          |> Ash.read!()
+          |> Ash.load!([:depth, :parent])
+
+        branch = Directory.Tree.build_branch_from_list(root, descendants)
+
+        {:ok, branch}
+      end
+    end
   end
 
   pub_sub do
@@ -235,6 +286,14 @@ defmodule Xeno.Files.Directory do
       description "The parent directory of this directory, leave nil for root directories"
     end
 
+    has_one :root_ancestor, __MODULE__ do
+      no_attributes? true
+
+      filter expr(path_ltree == parent(root_path))
+
+      description "The root directory ancestor for this directory (uses root_path calculation)"
+    end
+
     has_many :children, __MODULE__ do
       no_attributes? true
 
@@ -258,6 +317,7 @@ defmodule Xeno.Files.Directory do
     calculate :filename, :string, Directory.Filename
     calculate :path, :string, Directory.Path
     calculate :depth, :integer, Directory.Depth
+    calculate :root_path, AshPostgres.Ltree, Directory.RootPath
   end
 
   identities do

@@ -1,6 +1,7 @@
 defmodule XenoWeb.InfoLive do
   use XenoWeb, :live_view
 
+  alias Xeno.Files
   alias Xeno.Files.Directory
   require Ash.Query
   require Logger
@@ -8,7 +9,7 @@ defmodule XenoWeb.InfoLive do
   @impl true
   def mount(_params, _session, socket) do
     notes_dir = Xeno.notes_dir()
-    dirs = Directory.Tree.build()
+    dirs = Files.tree!()
 
     # Subscribe to directory changes
     if connected?(socket) do
@@ -66,11 +67,12 @@ defmodule XenoWeb.InfoLive do
   # Private helper functions
 
   defp update_directory_branch(socket, directory) do
-    # Find which root this directory belongs to
-    root = Directory.Tree.find_root_ancestor(directory)
+    # Find which root this directory belongs to by loading the relationship
+    directory_with_root = Ash.load!(directory, :root_ancestor)
+    root = directory_with_root.root_ancestor
 
     # Rebuild just that branch
-    new_branch = Directory.Tree.build_branch(root.id)
+    new_branch = Files.branch!(root.id)
 
     # Update the tree
     updated_tree = Directory.Tree.update_tree(socket.assigns.directories, root.id, new_branch)
@@ -80,7 +82,7 @@ defmodule XenoWeb.InfoLive do
 
   defp rebuild_entire_tree(socket) do
     # Rebuild the entire tree from scratch
-    updated_tree = Directory.Tree.build()
+    updated_tree = Files.tree!()
 
     assign(socket, directories: updated_tree)
   end

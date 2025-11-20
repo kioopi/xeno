@@ -2,25 +2,31 @@ defmodule Xeno.Files.Directory.TreeTest do
   use Xeno.DataCase, async: true
   use ExUnitProperties
 
+  alias Xeno.Files
   alias Xeno.Files.Directory
 
   require Ash.Query
 
-  describe "find_root_ancestor/1" do
+  describe "root_ancestor relationship" do
     test "returns the root directory for a nested directory" do
       root = create!("root")
       child = create!("root/child")
       grandchild = create!("root/child/grandchild")
 
-      assert Directory.Tree.find_root_ancestor(grandchild).id == root.id
-      assert Directory.Tree.find_root_ancestor(child).id == root.id
-      assert Directory.Tree.find_root_ancestor(root).id == root.id
+      grandchild_with_root = Ash.load!(grandchild, :root_ancestor)
+      child_with_root = Ash.load!(child, :root_ancestor)
+      root_with_root = Ash.load!(root, :root_ancestor)
+
+      assert grandchild_with_root.root_ancestor.id == root.id
+      assert child_with_root.root_ancestor.id == root.id
+      assert root_with_root.root_ancestor.id == root.id
     end
 
     test "returns the directory itself if it's already a root" do
       root = create!("root")
+      root_with_root = Ash.load!(root, :root_ancestor)
 
-      assert Directory.Tree.find_root_ancestor(root).id == root.id
+      assert root_with_root.root_ancestor.id == root.id
     end
 
     test "handles multiple independent root trees" do
@@ -30,8 +36,11 @@ defmodule Xeno.Files.Directory.TreeTest do
       root2 = create!("root2")
       child2 = create!("root2/child2")
 
-      assert Directory.Tree.find_root_ancestor(child1).id == root1.id
-      assert Directory.Tree.find_root_ancestor(child2).id == root2.id
+      child1_with_root = Ash.load!(child1, :root_ancestor)
+      child2_with_root = Ash.load!(child2, :root_ancestor)
+
+      assert child1_with_root.root_ancestor.id == root1.id
+      assert child2_with_root.root_ancestor.id == root2.id
     end
   end
 
@@ -42,7 +51,7 @@ defmodule Xeno.Files.Directory.TreeTest do
       _child2 = create!("root/child2")
       grandchild = create!("root/child1/grandchild")
 
-      branch = Directory.Tree.build_branch(root.id)
+      branch = Files.branch!(root.id)
 
       # Should be a single root tuple with nested children
       assert {root_dir, children} = branch
@@ -61,7 +70,7 @@ defmodule Xeno.Files.Directory.TreeTest do
     test "handles root with no children" do
       root = create!("lonely")
 
-      assert {root_dir, []} = Directory.Tree.build_branch(root.id)
+      assert {root_dir, []} = Files.branch!(root.id)
       assert root_dir.id == root.id
     end
 
@@ -72,7 +81,7 @@ defmodule Xeno.Files.Directory.TreeTest do
       _root2 = create!("root2")
       create!("root2/child2")
 
-      branch = Directory.Tree.build_branch(root1.id)
+      branch = Files.branch!(root1.id)
 
       # Should only contain root1 and its descendants
       assert {root_dir, children} = branch
@@ -92,10 +101,10 @@ defmodule Xeno.Files.Directory.TreeTest do
       root2 = create!("root2")
       create!("root2/child2")
 
-      original_tree = Directory.Tree.build(Directory)
+      original_tree = Files.tree!()
 
       # Rebuild root1's branch (simulating an update)
-      new_branch = Directory.Tree.build_branch(root1.id)
+      new_branch = Files.branch!(root1.id)
 
       updated_tree = Directory.Tree.update_tree(original_tree, root1.id, new_branch)
 
@@ -114,12 +123,12 @@ defmodule Xeno.Files.Directory.TreeTest do
     test "appends new branch if root not found in tree" do
       root1 = create!("root1")
 
-      tree = Directory.Tree.build(Directory)
+      tree = Files.tree!()
       assert length(tree) == 1
 
       # Create a new root
       root2 = create!("root2")
-      new_branch = Directory.Tree.build_branch(root2.id)
+      new_branch = Files.branch!(root2.id)
 
       updated_tree = Directory.Tree.update_tree(tree, root2.id, new_branch)
 
@@ -135,13 +144,13 @@ defmodule Xeno.Files.Directory.TreeTest do
       root1 = create!("root1")
       root2 = create!("root2")
 
-      original_tree = Directory.Tree.build(Directory)
+      original_tree = Files.tree!()
 
       # Get the original root2 branch
       original_root2_branch = Enum.find(original_tree, fn {d, _} -> d.id == root2.id end)
 
       # Update root1's branch
-      new_branch = Directory.Tree.build_branch(root1.id)
+      new_branch = Files.branch!(root1.id)
       updated_tree = Directory.Tree.update_tree(original_tree, root1.id, new_branch)
 
       # Root2 branch should be exactly the same object (not rebuilt)
@@ -157,7 +166,7 @@ defmodule Xeno.Files.Directory.TreeTest do
       create!("dir2")
       create!("dir1/dir11")
 
-      tree = Directory.Tree.build(Directory, & &1.filename)
+      tree = Files.tree!(%{transform: & &1.filename})
 
       assert tree == [
                {"dir1", [{"dir11", []}]},
@@ -181,7 +190,7 @@ defmodule Xeno.Files.Directory.TreeTest do
       create!("dir3/dir31/dir311/dir3112")
       create!("dir4")
 
-      tree = Directory.Tree.build(Directory, & &1.filename)
+      tree = Files.tree!(%{transform: & &1.filename})
 
       assert tree == [
                {"dir1", [{"dir11", [{"dir111", []}]}]},

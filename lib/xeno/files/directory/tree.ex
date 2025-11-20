@@ -1,15 +1,38 @@
 defmodule Xeno.Files.Directory.Tree do
   @moduledoc """
-  Builds a nested tree structure from Directory records using their ltree paths.
+  Tree-building utilities for Directory records using their ltree paths.
 
-  The algorithm makes two
-  passes over the directory list to build a complete hierarchical tree.
+  This module provides functions to build nested tree structures from flat
+  lists of directories, and to manipulate those tree structures efficiently.
 
   ## Tree Structure
 
   The tree is represented as a list of tuples where each tuple contains:
   - A transformed directory value (by default, the directory record itself)
   - A list of child directory tuples (same format, recursively)
+
+  ## Usage
+
+  Most users should interact with the directory tree through the Ash domain actions:
+
+      # Build complete tree via domain function
+      tree = Xeno.Files.tree!()
+
+      # Build tree with transformation
+      tree = Xeno.Files.tree!(%{transform: &(&1.filename)})
+
+      # Build specific branch
+      branch = Xeno.Files.branch!(root_id)
+
+      # Update tree with new branch
+      updated_tree = Directory.Tree.update_tree(tree, root_id, new_branch)
+
+      # Get root ancestor via relationship
+      directory_with_root = Ash.load!(directory, :root_ancestor)
+      root = directory_with_root.root_ancestor
+
+  The functions in this module are primarily used internally by Ash actions and
+  for in-memory tree operations like `update_tree/3`.
 
   ## Algorithm
 
@@ -33,30 +56,27 @@ defmodule Xeno.Files.Directory.Tree do
 
   ## Examples
 
-      # Build a simple tree with full directory records
-      tree = Directory.Tree.build(Directory)
-      # Returns: [{%Directory{name: "docs"}, [{%Directory{name: "guides"}, []}]}]
+      # Build a tree from a list of directories
+      dirs = [root, child1, child2, grandchild]
+      tree = Directory.Tree.build_from_list(dirs)
+      # Returns: [{%Directory{}, [{%Directory{}, []}]}]
 
-      # Build a tree with custom transformation (e.g., just filenames)
-      tree = Directory.Tree.build(Directory, fn dir -> dir.filename end)
-      # Returns: [{"docs", [{"guides", []}]}]
-
-      # Build a tree with custom data structure
-      tree = Directory.Tree.build(Directory, fn dir ->
-        %{id: dir.id, name: dir.name, path: dir.path}
-      end)
+      # Build with transformation
+      tree = Directory.Tree.build_from_list(dirs, &(&1.filename))
+      # Returns: [{"root", [{"child", []}]}]
   """
 
   @doc """
-  Builds a nested tree structure from directories in the database.
+  Builds a nested tree structure from a pre-loaded list of directories.
 
-  Takes a query (or the Directory module directly) and an optional transformation
-  function to customize how directory data appears in the tree.
+  This is a pure function that takes a list of directories and builds a tree
+  structure without any database queries. Useful for building trees within
+  Ash actions or other contexts where directories are already loaded.
 
   ## Parameters
 
-    * `query` - An Ash query or the Directory module (default: `Xeno.Files.Directory`)
-    * `fun` - A function to transform each directory record (default: identity function)
+    * `directories` - A list of Directory structs (must have depth and parent loaded)
+    * `fun` - Optional transformation function (default: identity)
 
   ## Returns
 
@@ -64,153 +84,41 @@ defmodule Xeno.Files.Directory.Tree do
 
   ## Examples
 
-      # Simple tree with full directory records
-      Directory.Tree.build(Directory)
+      # Build tree from loaded directories
+      dirs = [root, child1, child2]
+      tree = Directory.Tree.build_from_list(dirs)
 
-      # Tree with only filenames
-      Directory.Tree.build(Directory, fn dir -> dir.filename end)
-      # => [{"docs", [{"guides", []}, {"api", []}]}]
-
-      # Tree with filtered directories
-      query = Ash.Query.filter(Directory, parent_id == ^some_id)
-      Directory.Tree.build(query, fn dir -> dir.name end)
-
-      # Tree with custom struct
-      Directory.Tree.build(Directory, fn dir ->
-        %{id: dir.id, label: dir.name, type: "directory"}
-      end)
-
-  ## Implementation Details
-
-  The function performs the following steps:
-
-  1. Loads all directories sorted by path (ensuring parents come before children)
-  2. Loads the `:depth` and `:parent` calculations for efficient processing
-  3. Builds an intermediate map structure with all directories
-  4. Populates children by iterating in reverse order
-  5. Returns only root-level entries with their complete subtrees
+      # With transformation
+      tree = Directory.Tree.build_from_list(dirs, &(&1.filename))
   """
-  def build(query \\ Xeno.Files.Directory, fun \\ fn dir -> dir end) do
-    # Load directories sorted by path (parents before children) with filename
-    dirs =
-      query
-      |> Ash.Query.sort(:path_ltree)
-      |> Ash.Query.load([:depth, :parent])
-      |> Ash.read!()
+  def build_from_list(directories, fun \\ fn dir -> dir end) do
+    {tree_map, roots} = map_directories_by_path(directories, fun)
 
-    # Pass 1: Initialize map with all directories and empty children lists
-    {tree_map, roots} = map_directories_by_path(dirs, fun)
-
-    # Pass 2: Populate children by iterating in reverse (deepest first)
-    # This ensures each directory already has its children when added to parent
-    assign_directories_to_parents(tree_map, dirs)
-    # Extract and return root-level entries (path length == 1)
+    assign_directories_to_parents(tree_map, directories)
     |> root_directories_with_children(roots)
   end
 
   @doc """
-  Finds the root ancestor for a given directory.
+  Builds a branch from a pre-loaded root directory and its descendants.
 
-  This function efficiently finds the root directory by using the ltree path
-  structure instead of recursively traversing parent relationships. It extracts
-  the first segment of the directory's ltree path and queries for that root,
-  resulting in O(1) database queries regardless of nesting depth.
+  Similar to `build_from_list/2` but returns a single branch tuple instead
+  of a list of roots.
 
   ## Parameters
 
-    * `directory` - A Directory struct (must have path_ltree loaded)
+    * `root` - The root Directory struct
+    * `descendants` - List of descendant Directory structs
+    * `fun` - Optional transformation function (default: identity)
 
   ## Returns
 
-  The root Directory struct for the given directory's tree.
-
-  ## Examples
-
-      # For a nested directory like "/docs/guides/intro"
-      directory = Directory.by_path!("/docs/guides/intro")
-      root = Directory.Tree.find_root_ancestor(directory)
-      # Returns the Directory with path "/docs"
-
-      # For a root directory
-      root = Directory.by_path!("/docs")
-      root = Directory.Tree.find_root_ancestor(root)
-      # Returns itself (the Directory with path "/docs")
-
-  ## Performance
-
-  This function uses ltree path analysis for O(1) query complexity:
-  - Traditional approach: O(depth) queries (traverse parent chain)
-  - Ltree approach: O(1) queries (extract root segment, query once)
-
-  For a directory nested 10 levels deep, this saves 9 database queries.
+  A single tuple of `{directory, children}`.
   """
-  def find_root_ancestor(%Xeno.Files.Directory{path_ltree: path_ltree} = dir) do
-    # Extract first segment of ltree path (the root)
-    [root_segment | _] = path_ltree
-
-    if length(path_ltree) == 1 do
-      # Already at root, return self
-      dir
-    else
-      # Query for directory with single-segment path (the root)
-      # Uses existing by_path action which leverages ltree indexing
-      Xeno.Files.Directory.by_path!("/#{root_segment}")
-    end
-  end
-
-  @doc """
-  Builds a tree branch for a single root directory and all its descendants.
-
-  This function efficiently constructs a tree structure for a specific root
-  directory by leveraging the ltree-optimized `descendants_of` query, then
-  using the same two-pass algorithm as `build/0` to create the nested structure.
-
-  ## Parameters
-
-    * `root_id` - The ID of the root directory to build a branch for
-
-  ## Returns
-
-  A single tuple of `{directory, children}` representing the root and its
-  complete subtree. Unlike `build/0` which returns a list of root tuples,
-  this returns just one tuple for the specified root.
-
-  ## Examples
-
-      # Build a branch for a specific root
-      root = Directory.by_path!("/docs")
-      branch = Directory.Tree.build_branch(root.id)
-      # Returns: {%Directory{path: "/docs"}, [{%Directory{path: "/docs/guides"}, [...]}]}
-
-      # Root with no children
-      root = Directory.by_path!("/empty")
-      branch = Directory.Tree.build_branch(root.id)
-      # Returns: {%Directory{path: "/empty"}, []}
-  """
-  def build_branch(root_id) when is_binary(root_id) do
-    # Load root directory
-    root =
-      Xeno.Files.Directory.get!(
-        root_id,
-        load: [:depth, :parent]
-      )
-
-    # Build tree using same algorithm as build/0 but for this subset
-    # Get all descendants. Descendants can be loaded via the relationship
-    # in Directory with one query. But that is ordered in the wrong order
-    # and i didnt find a way to specify order there, so we use a separate query.
-    descendants =
-      Xeno.Files.Directory.descendants_of!(root)
-      |> Ash.load!([:depth, :parent])
-
+  def build_branch_from_list(root, descendants, fun \\ fn dir -> dir end) do
     all_dirs = [root | descendants]
+    {tree_map, _roots} = map_directories_by_path(all_dirs, fun)
 
-    # Pass 1: Initialize map with all directories and empty children lists
-    {tree_map, _roots} = map_directories_by_path(all_dirs)
-
-    # Pass 2: Populate children by iterating in reverse (deepest first)
     assign_directories_to_parents(tree_map, all_dirs)
-    # Extract and return just the single root branch (not a list)
     |> Map.fetch!(root.path)
   end
 
@@ -276,7 +184,7 @@ defmodule Xeno.Files.Directory.Tree do
   # Roots are collected in reverse order and then reversed again to maintain original order.
   #
   # Returns: {tree_map, root_paths}
-  defp map_directories_by_path(directories, fun \\ fn dir -> dir end) do
+  defp map_directories_by_path(directories, fun) do
     {tree, roots} =
       Enum.reduce(directories, {%{}, []}, fn dir, {tree, roots} ->
         {Map.put(tree, dir.path, {fun.(dir), []}), collect_roots(roots, dir)}
