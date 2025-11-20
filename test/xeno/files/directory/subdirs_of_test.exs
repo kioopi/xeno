@@ -12,8 +12,13 @@ defmodule Xeno.Files.Directory.SubdirsOfTest do
 
       # Returns subdirs breadth first and sorted by ascending depth
       # This makes it easy to recursively create directories in order
-      assert ["grandparent", "theme", "grandparent/parent", "theme/subtheme",
- "grandparent/parent/child"] == dirs
+      assert [
+               "grandparent",
+               "theme",
+               "grandparent/parent",
+               "theme/subtheme",
+               "grandparent/parent/child"
+             ] == dirs
     end
   end
 end

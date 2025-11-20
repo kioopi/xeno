@@ -1,0 +1,142 @@
+defmodule Xeno.Content.Note do
+  @moduledoc """
+  A note with plaintext content and custom JSON data.
+
+  Notes are always created from a NoteType template and belong to a Directory.
+  They support optimistic locking to prevent lost updates in concurrent editing scenarios.
+  """
+  use Ash.Resource,
+    otp_app: :xeno,
+    domain: Xeno.Content,
+    data_layer: AshPostgres.DataLayer,
+    notifiers: [Ash.Notifier.PubSub]
+
+  alias Xeno.Content.Changes
+  alias Xeno.Files.Directory
+  alias Xeno.Content.NoteType
+
+  postgres do
+    table "notes"
+    repo Xeno.Repo
+  end
+
+  code_interface do
+    define :get, action: :read, get_by: [:id]
+    define :by_filename, action: :read, get_by: [:directory_id, :filename]
+    define :in_directory, action: :read, args: [:directory_id]
+    define :create, action: :create
+    define :update, action: :update
+    define :destroy, action: :destroy
+  end
+
+  actions do
+    defaults [:read, :destroy]
+
+    create :create do
+      primary? true
+      accept [:name, :filename, :text, :data, :tags]
+
+      argument :note_type_id, :uuid do
+        allow_nil? false
+      end
+
+      argument :directory_id, :uuid do
+        allow_nil? false
+      end
+
+      change Changes.GenerateFilename, where: [changing(:name), negate(changing(:filename))]
+      change Changes.InitializeFromType
+      change Changes.NormalizeTags, where: changing(:tags)
+
+      change manage_relationship(:directory_id, :directory, type: :append)
+    end
+
+    update :update do
+      primary? true
+      accept [:name, :text, :data, :tags]
+      require_atomic? false
+
+      change Changes.NormalizeTags, where: changing(:tags)
+    end
+  end
+
+  pub_sub do
+    module XenoWeb.Endpoint
+    prefix "note"
+
+    publish :create, "created"
+    publish :update, ["updated", ":id:updated"]
+    publish :destroy, "destroyed"
+
+    broadcast_type :phoenix_broadcast
+  end
+
+  changes do
+    change load([:directory, :note_type]) do
+      on [:create, :update]
+    end
+
+    change optimistic_lock(:version), on: [:update, :destroy]
+  end
+
+  attributes do
+    uuid_primary_key :id
+
+    attribute :name, :string do
+      allow_nil? false
+      public? true
+      description "Human-readable name for the note"
+    end
+
+    attribute :filename, :string do
+      allow_nil? false
+      public? true
+      description "Filesystem-safe filename (auto-generated from name if not provided)"
+    end
+
+    attribute :text, :string do
+      public? true
+      description "Plaintext content of the note"
+    end
+
+    attribute :data, :map do
+      public? true
+      description "Custom JSON data"
+    end
+
+    attribute :tags, {:array, :string} do
+      public? true
+      description "List of tags (normalized to lowercase)"
+      constraints items: [allow_empty?: true]
+    end
+
+    attribute :version, :integer do
+      allow_nil? false
+      default 1
+      public? true
+      description "Version number for optimistic locking"
+    end
+
+    timestamps()
+  end
+
+  relationships do
+    belongs_to :directory, Directory do
+      allow_nil? false
+      public? true
+      description "The directory containing this note"
+    end
+
+    belongs_to :note_type, NoteType do
+      allow_nil? false
+      public? true
+      description "The note type template this note was created from"
+    end
+  end
+
+  identities do
+    identity :unique_filename_in_directory, [:directory_id, :filename] do
+      description "Ensures filenames are unique within a directory"
+    end
+  end
+end
