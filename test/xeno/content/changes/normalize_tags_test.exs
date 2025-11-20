@@ -1,14 +1,13 @@
 defmodule Xeno.Content.Changes.NormalizeTagsTest do
   use Xeno.DataCase, async: true
 
-  alias Xeno.Content
-  alias Content.Note
-  alias Content.NoteType
-  alias Xeno.Files.Directory
+  import Xeno.Generators
+
+  alias Xeno.Content.Note
 
   setup do
-    {:ok, directory} = Directory.create("test_notes")
-    {:ok, note_type} = NoteType.create(%{name: "Test"})
+    directory = generate(directory(path: "test_notes"))
+    note_type = generate(note_type(name: "Test"))
 
     {:ok, directory: directory, note_type: note_type}
   end

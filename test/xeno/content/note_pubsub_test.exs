@@ -1,16 +1,17 @@
 defmodule Xeno.Content.NotePubSubTest do
   use Xeno.DataCase, async: true
 
-  alias Xeno.Content.{Note, NoteType}
-  alias Xeno.Files.Directory
+  import Xeno.Generators
+
+  alias Xeno.Content.Note
 
   setup do
     Phoenix.PubSub.subscribe(Xeno.PubSub, "note:created")
     Phoenix.PubSub.subscribe(Xeno.PubSub, "note:updated")
     Phoenix.PubSub.subscribe(Xeno.PubSub, "note:destroyed")
 
-    {:ok, directory} = Directory.create("pubsub_test")
-    {:ok, note_type} = NoteType.create(%{name: "PubSub Test"})
+    directory = generate(directory(path: "pubsub_test"))
+    note_type = generate(note_type(name: "PubSub Test"))
 
     {:ok, directory: directory, note_type: note_type}
   end

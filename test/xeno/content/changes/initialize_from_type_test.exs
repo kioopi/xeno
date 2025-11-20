@@ -1,19 +1,22 @@
 defmodule Xeno.Content.Changes.InitializeFromTypeTest do
   use Xeno.DataCase, async: true
 
+  import Xeno.Generators
+
   alias Xeno.Content.{Note, NoteType}
-  alias Xeno.Files.Directory
 
   setup do
-    {:ok, directory} = Directory.create("test_notes")
+    directory = generate(directory(path: "test_notes"))
 
-    {:ok, note_type} =
-      NoteType.create(%{
-        name: "Template",
-        initial_text: "Default text",
-        initial_data: %{"config" => "value"},
-        initial_tags: ["tag1", "tag2"]
-      })
+    note_type =
+      generate(
+        note_type(
+          name: "Template",
+          initial_text: "Default text",
+          initial_data: %{"config" => "value"},
+          initial_tags: ["tag1", "tag2"]
+        )
+      )
 
     {:ok, directory: directory, note_type: note_type}
   end
@@ -104,7 +107,13 @@ defmodule Xeno.Content.Changes.InitializeFromTypeTest do
     end
 
     test "handles NoteType with nil initial values", %{directory: dir} do
-      {:ok, empty_type} = NoteType.create(%{name: "Empty"})
+      {:ok, empty_type} =
+        NoteType.create(%{
+          name: "Empty",
+          initial_text: nil,
+          initial_data: nil,
+          initial_tags: nil
+        })
 
       {:ok, note} =
         Note.create(%{

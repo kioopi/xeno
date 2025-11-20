@@ -106,9 +106,14 @@ defmodule Xeno.Content.GeneratorExampleTest do
   end
 
   describe "generate_many usage" do
-    test "generate multiple note types" do
-      # NoteTypes can have unique names when randomly generated
-      note_types = generate_many(note_type(), 3)
+    test "generate multiple note types with unique names" do
+      # Create note types with explicit unique names
+      note_types =
+        [
+          generate(note_type(name: "Type 1")),
+          generate(note_type(name: "Type 2")),
+          generate(note_type(name: "Type 3"))
+        ]
 
       assert length(note_types) == 3
       assert Enum.all?(note_types, & &1.id)

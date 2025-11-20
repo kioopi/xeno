@@ -1,6 +1,8 @@
 defmodule Xeno.Content.NoteTypeTest do
   use Xeno.DataCase, async: true
 
+  import Xeno.Generators
+
   alias Xeno.Content.NoteType
 
   describe "create/1" do
@@ -44,7 +46,7 @@ defmodule Xeno.Content.NoteTypeTest do
 
   describe "update/2" do
     test "updates note type fields" do
-      assert {:ok, note_type} = NoteType.create(%{name: "Original"})
+      note_type = generate(note_type(name: "Original"))
 
       assert {:ok, updated} =
                NoteType.update(note_type, %{
@@ -59,7 +61,7 @@ defmodule Xeno.Content.NoteTypeTest do
 
   describe "by_name/1" do
     test "finds note type by name" do
-      assert {:ok, note_type} = NoteType.create(%{name: "Findable"})
+      note_type = generate(note_type(name: "Findable"))
       assert {:ok, found} = NoteType.by_name("Findable")
       assert found.id == note_type.id
     end
@@ -72,7 +74,7 @@ defmodule Xeno.Content.NoteTypeTest do
 
   describe "timestamps" do
     test "sets inserted_at and updated_at on creation" do
-      assert {:ok, note_type} = NoteType.create(%{name: "Timestamped"})
+      note_type = generate(note_type(name: "Timestamped"))
 
       assert %DateTime{} = note_type.inserted_at
       assert %DateTime{} = note_type.updated_at

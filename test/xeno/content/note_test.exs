@@ -1,19 +1,22 @@
 defmodule Xeno.Content.NoteTest do
   use Xeno.DataCase, async: true
 
-  alias Xeno.Content.{Note, NoteType}
-  alias Xeno.Files.Directory
+  import Xeno.Generators
+
+  alias Xeno.Content.Note
 
   setup do
-    {:ok, directory} = Directory.create("test_notes")
+    directory = generate(directory(path: "test_notes"))
 
-    {:ok, note_type} =
-      NoteType.create(%{
-        name: "Test Template",
-        initial_text: "Template text",
-        initial_data: %{"key" => "value"},
-        initial_tags: ["template", "test"]
-      })
+    note_type =
+      generate(
+        note_type(
+          name: "Test Template",
+          initial_text: "Template text",
+          initial_data: %{"key" => "value"},
+          initial_tags: ["template", "test"]
+        )
+      )
 
     {:ok, directory: directory, note_type: note_type}
   end
@@ -73,8 +76,8 @@ defmodule Xeno.Content.NoteTest do
     end
 
     test "allows same filename in different directories", %{note_type: type} do
-      {:ok, dir1} = Directory.create("dir1")
-      {:ok, dir2} = Directory.create("dir2")
+      dir1 = generate(directory(path: "dir1"))
+      dir2 = generate(directory(path: "dir2"))
 
       attrs1 = %{
         name: "Note",
