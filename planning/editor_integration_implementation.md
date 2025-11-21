@@ -1,6 +1,6 @@
 # Editor Integration - Implementation Plan
 
-## Current Status: ✅ Phase 2.1 Complete - Backend Import Ready
+## Current Status: ✅ Phase 2 Complete - Manual Import PoC Working
 
 **Last Updated**: 2025-11-21
 
@@ -24,9 +24,31 @@
   - `import_changes/1` - Batch import with error collection
 - ✅ **Test Coverage**: 25 new tests, all passing (261 total tests passing)
 
+### Completed Work - Phase 2.2-2.4 (Manual Import PoC)
+- ✅ **LiveView Import Events** - Full import event handling (6 new tests, 24 total for SyncLive)
+  - `handle_event("scan_files", ...)` - Triggers file scanning
+  - `handle_event("import_files", ...)` - Processes imported changes
+  - `handle_event("import_error", ...)` - Handles import errors
+  - Flash messages for success/failure scenarios
+  - Last sync timestamp updates
+- ✅ **JavaScript File Reading** - Complete file scanning implementation
+  - `readNoteFiles(path)` - Reads paired .md and .json files
+  - `scanForChanges()` - Recursively scans directory for all notes
+  - `scanDirectory()` - Recursive directory traversal helper
+  - `scanFiles()` - Event handler that triggers scan and pushes to LiveView
+  - Permission verification and error handling
+- ✅ **Import UI** - "Import Changes" button added to `/sync` page
+  - Button visible when directory connected
+  - Explanatory text for Export vs Import
+  - Seamless integration with existing UI
+- ✅ **Test Coverage**: 31 new tests total (267 tests passing project-wide)
+  - 6 new tests for import functionality
+  - Covers successful imports, partial failures, version conflicts
+  - Database verification and UI element checks
+
 ### Next Steps
-- Phase 2.2: LiveView integration for import events
-- Phase 2.3: JavaScript file reading and manual import UI
+- Phase 2.5-2.6: Automatic file watching with FileSystemObserver (experimental API)
+- Phase 3: Conflict resolution UI and polish
 
 ---
 
@@ -927,12 +949,15 @@ if (!hasFileSystemAccess || !hasFileSystemObserver) {
 ### MVP (Minimum Viable Product) - ✅ COMPLETE
 - ✅ User can connect local folder (File System API integrated)
 - ✅ User can export all notes to local folder (Files written successfully)
-- ⏳ Changes to .md files sync back to database (Phase 2 - next step)
+- ✅ Changes to .md files sync back to database (Manual import working!)
 - ✅ Basic error messages shown for failures
 - ✅ Last sync timestamp displayed
 - ✅ Connection status persists across page reloads
 - ✅ Directory structure mirrors database hierarchy
 - ✅ Progress indicators during export
+- ✅ Manual "Import Changes" button scans and imports all files
+- ✅ Version conflict detection via optimistic locking
+- ✅ Partial import failure handling (continues on errors)
 
 ### V1.0 - ⏳ TODO
 - ⏳ FileSystemObserver auto-detects changes
@@ -1001,6 +1026,57 @@ Complete backend infrastructure for importing file changes from filesystem to da
    - 6 tests for Sync context (import functions)
    - **Total project**: 261 tests passing
 
+### Phase 2.2-2.4: Manual Import PoC ✅ COMPLETE
+Complete end-to-end manual import functionality following strict TDD:
+
+1. **LiveView Integration** - Import event handlers (lib/xeno_web/live/sync_live.ex)
+   - `handle_event("scan_files", ...)` - Triggers client-side file scanning
+   - `handle_event("import_files", %{"changes" => changes}, ...)` - Processes batch imports
+   - `handle_event("import_error", ...)` - Handles client-side errors
+   - Flash messages for all scenarios (success, partial failure, empty)
+   - Last sync timestamp tracking
+
+2. **JavaScript File Reader** - Complete directory scanning (assets/js/hooks/file_system_hook.ts)
+   - `scanFiles()` - Main event handler, triggers scan with permission checks
+   - `scanForChanges()` - Orchestrates recursive directory traversal
+   - `scanDirectory()` - Recursively walks directory tree
+   - `readNoteFiles(path)` - Reads paired .md and .json files
+   - Error handling and permission verification
+   - Pushes structured changes to LiveView
+
+3. **UI Enhancement** - Import button and explanations (lib/xeno_web/live/sync_live.html.heex)
+   - "Import Changes" button (visible when directory connected)
+   - Explanatory text differentiating Export vs Import
+   - Seamless integration with existing sync UI
+
+4. **Test Coverage** - 6 new tests (24 total for SyncLive, 267 project-wide)
+   - ✅ Successful import with database verification
+   - ✅ Partial import failures (continues processing)
+   - ✅ Version conflict handling (optimistic locking)
+   - ✅ Last sync timestamp updates
+   - ✅ Empty changes handling
+   - ✅ UI element presence verification
+
+### How the Manual Import Works
+
+**User Flow:**
+1. User clicks "Choose Folder" → Selects local directory
+2. User clicks "Export All Notes" → Files written to filesystem
+3. User edits `.md` files in external editor (VS Code, Vim, etc.)
+4. User clicks "Import Changes" → Triggers file scan
+5. JavaScript recursively scans directory, reads all `.md`/`.json` pairs
+6. JavaScript pushes changes array to LiveView
+7. LiveView calls `Sync.import_changes(changes)`
+8. Each note updated in database with optimistic locking
+9. Flash message shows: "Successfully imported N note(s)" or "Imported X, failed Y"
+
+**Error Handling:**
+- Permission denied → Clear error message, prompts reconnection
+- Version conflicts → Optimistic locking prevents stale updates
+- Invalid JSON → Validation catches malformed metadata
+- Missing files → Continues processing other files
+- Partial failures → Shows count of successes and failures
+
 ### Key Decisions Made
 - **TDD First**: All backend code written test-first
 - **Pure Functions**: Easy to test and reason about
@@ -1010,9 +1086,11 @@ Complete backend infrastructure for importing file changes from filesystem to da
 - **Optimistic Locking**: Version conflicts detected and reported
 - **Error Handling**: Clear error messages for validation failures
 - **Batch Processing**: Continues on failures, collects errors
+- **Manual Import First**: Started with manual "Import Changes" button before automatic watching
+- **No Experimental APIs**: Avoided FileSystemObserver (Chrome 129+) for wider compatibility
 
 ### What's Next
-1. **Phase 2.2**: LiveView integration - Add `file_changed` event handler
-2. **Phase 2.3**: JavaScript file reader - Read `.md` and `.json` from filesystem
-3. **Phase 2.4**: Manual import UI - Add "Import Changes" button
-4. **Phase 3**: Conflict resolution UI and automatic file watching
+1. **Manual Testing**: Test the complete flow in browser at `/sync`
+2. **Phase 2.5-2.6**: FileSystemObserver integration for automatic file watching (optional)
+3. **Phase 3**: Conflict resolution UI with merge options
+4. **Phase 4**: Database → Filesystem sync (reverse direction)

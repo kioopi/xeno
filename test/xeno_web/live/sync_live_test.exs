@@ -288,4 +288,182 @@ defmodule XenoWeb.SyncLiveTest do
       assert html =~ "Export failed: Write failed"
     end
   end
+
+  describe "import_files event" do
+    test "imports file changes and shows success message", %{conn: conn} do
+      directory = generate(directory(path: "test"))
+      note_type = generate(note_type(name: "Note"))
+
+      note =
+        generate(
+          note(
+            name: "Test Note",
+            text: "Original content",
+            version: 1,
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
+        )
+
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+
+      changes = [
+        %{
+          "note_id" => note.id,
+          "markdown_content" => "Updated content",
+          "metadata" => %{
+            "id" => note.id,
+            "version" => 1,
+            "name" => "Updated Note"
+          }
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      html = render(view)
+      assert html =~ "Successfully imported 1 note(s)"
+      assert html =~ "Last sync:"
+
+      {:ok, updated_note} = Xeno.Content.Note.get(note.id)
+      assert updated_note.text == "Updated content"
+      assert updated_note.name == "Updated Note"
+    end
+
+    test "handles partial import failures", %{conn: conn} do
+      directory = generate(directory(path: "test"))
+      note_type = generate(note_type(name: "Note"))
+
+      note =
+        generate(
+          note(
+            name: "Test Note",
+            text: "Original",
+            version: 1,
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
+        )
+
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+
+      changes = [
+        %{
+          "note_id" => note.id,
+          "markdown_content" => "Valid update",
+          "metadata" => %{
+            "id" => note.id,
+            "version" => 1
+          }
+        },
+        %{
+          "note_id" => "invalid-uuid",
+          "markdown_content" => "Invalid",
+          "metadata" => %{
+            "id" => "invalid-uuid",
+            "version" => 1
+          }
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      html = render(view)
+      assert html =~ "Imported 1"
+      assert html =~ "failed 1"
+    end
+
+    test "handles version conflicts", %{conn: conn} do
+      directory = generate(directory(path: "test"))
+      note_type = generate(note_type(name: "Note"))
+
+      note =
+        generate(
+          note(
+            name: "Test Note",
+            text: "Original",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
+        )
+
+      {:ok, updated_note} = Xeno.Content.Note.update(note, %{text: "Concurrent update"})
+
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+
+      changes = [
+        %{
+          "note_id" => note.id,
+          "markdown_content" => "Conflicting update",
+          "metadata" => %{
+            "id" => note.id,
+            "version" => note.version
+          }
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      {:ok, final_note} = Xeno.Content.Note.get(note.id)
+      assert final_note.text == "Concurrent update"
+      assert final_note.version == updated_note.version
+    end
+
+    test "updates last_sync timestamp on successful import", %{conn: conn} do
+      directory = generate(directory(path: "test"))
+      note_type = generate(note_type(name: "Note"))
+
+      note =
+        generate(
+          note(
+            text: "Original",
+            version: 1,
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
+        )
+
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+
+      changes = [
+        %{
+          "note_id" => note.id,
+          "markdown_content" => "Updated",
+          "metadata" => %{
+            "id" => note.id,
+            "version" => 1
+          }
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      html = render(view)
+      assert html =~ "Last sync:"
+    end
+
+    test "shows error when no changes provided", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+      render_hook(view, "import_files", %{"changes" => []})
+
+      html = render(view)
+      assert html =~ "No changes to import"
+    end
+
+    test "requires directory connection before import", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      refute has_element?(view, "#import-btn")
+    end
+  end
 end

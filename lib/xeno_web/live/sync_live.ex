@@ -156,4 +156,42 @@ defmodule XenoWeb.SyncLive do
      |> assign(sync_status: :idle, error: message)
      |> put_flash(:error, "Export failed: #{message}")}
   end
+
+  @impl true
+  def handle_event("scan_files", _params, socket) do
+    {:noreply, push_event(socket, "scan_files", %{})}
+  end
+
+  @impl true
+  def handle_event("import_error", %{"message" => message}, socket) do
+    {:noreply,
+     socket
+     |> assign(error: message)
+     |> put_flash(:error, "Import error: #{message}")}
+  end
+
+  @impl true
+  def handle_event("import_files", %{"changes" => []}, socket) do
+    {:noreply,
+     socket
+     |> put_flash(:info, "No changes to import")}
+  end
+
+  @impl true
+  def handle_event("import_files", %{"changes" => changes}, socket) when is_list(changes) do
+    {:ok, %{imported: imported, failed: failed}} = Sync.import_changes(changes)
+
+    socket =
+      if failed == 0 do
+        socket
+        |> assign(last_sync: DateTime.utc_now())
+        |> put_flash(:info, "Successfully imported #{imported} note(s)")
+      else
+        socket
+        |> assign(last_sync: DateTime.utc_now())
+        |> put_flash(:info, "Imported #{imported}, failed #{failed}")
+      end
+
+    {:noreply, socket}
+  end
 end

@@ -50,6 +50,7 @@ export const FileSystemHook: LiveViewHook & {
     this.handleEvent('request_directory', this.requestDirectory.bind(this));
     this.handleEvent('write_files', this.writeFiles.bind(this));
     this.handleEvent('disconnect_directory', this.disconnectDirectory.bind(this));
+    this.handleEvent('scan_files', this.scanFiles.bind(this));
 
     this.loadPersistedHandle();
   },
@@ -198,6 +199,105 @@ export const FileSystemHook: LiveViewHook & {
     const jsonWritable = await jsonHandle.createWritable();
     await jsonWritable.write(file.json);
     await jsonWritable.close();
+  },
+
+  async scanFiles() {
+    try {
+      if (!this.directoryHandle) {
+        this.pushEvent('import_error', {
+          message: 'No directory connected'
+        });
+        return;
+      }
+
+      const hasPermission = await this.handleStore.verifyPermission(this.directoryHandle);
+
+      if (!hasPermission) {
+        this.pushEvent('import_error', {
+          message: 'Permission denied. Please reconnect the folder.'
+        });
+        return;
+      }
+
+      const changes = await this.scanForChanges();
+
+      this.pushEvent('import_files', {
+        changes: changes
+      });
+    } catch (error: any) {
+      console.error('Error scanning files:', error);
+      this.pushEvent('import_error', {
+        message: error.message || 'Failed to scan files'
+      });
+    }
+  },
+
+  async readNoteFiles(path: string): Promise<{markdown: string, metadata: any} | null> {
+    try {
+      const pathParts = path.split('/').filter(p => p);
+      const filename = pathParts.pop()!;
+
+      let currentDir = this.directoryHandle!;
+
+      for (const dirName of pathParts) {
+        currentDir = await currentDir.getDirectoryHandle(dirName);
+      }
+
+      const baseFilename = filename.replace(/\.[^/.]+$/, '');
+
+      const mdHandle = await currentDir.getFileHandle(`${baseFilename}.md`);
+      const mdFile = await mdHandle.getFile();
+      const markdown = await mdFile.text();
+
+      const jsonHandle = await currentDir.getFileHandle(`${baseFilename}.json`);
+      const jsonFile = await jsonHandle.getFile();
+      const jsonText = await jsonFile.text();
+      const metadata = JSON.parse(jsonText);
+
+      return {markdown, metadata};
+    } catch (error) {
+      console.error(`Error reading note files at ${path}:`, error);
+      return null;
+    }
+  },
+
+  async scanForChanges(): Promise<any[]> {
+    if (!this.directoryHandle) {
+      return [];
+    }
+
+    const changes: any[] = [];
+
+    try {
+      await this.scanDirectory(this.directoryHandle, '', changes);
+      return changes;
+    } catch (error) {
+      console.error('Error scanning for changes:', error);
+      return [];
+    }
+  },
+
+  async scanDirectory(dirHandle: FileSystemDirectoryHandle, currentPath: string, changes: any[]): Promise<void> {
+    for await (const entry of dirHandle.values()) {
+      const entryPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+
+      if (entry.kind === 'directory') {
+        await this.scanDirectory(entry as FileSystemDirectoryHandle, entryPath, changes);
+      } else if (entry.kind === 'file' && entry.name.endsWith('.md')) {
+        const baseName = entry.name.replace(/\.md$/, '');
+        const filePath = currentPath ? `${currentPath}/${baseName}` : baseName;
+
+        const noteFiles = await this.readNoteFiles(filePath);
+
+        if (noteFiles && noteFiles.metadata && noteFiles.metadata.id) {
+          changes.push({
+            note_id: noteFiles.metadata.id,
+            markdown_content: noteFiles.markdown,
+            metadata: noteFiles.metadata
+          });
+        }
+      }
+    }
   },
 
   destroyed() {

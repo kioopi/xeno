@@ -51,12 +51,25 @@
             </button>
 
             <button
+              id="import-btn"
+              phx-click="scan_files"
+              class="btn btn-secondary"
+            >
+              Import Changes
+            </button>
+
+            <button
               id="disconnect-directory-btn"
               phx-click="disconnect_directory"
               class="btn btn-outline"
             >
               Disconnect Folder
             </button>
+          </div>
+
+          <div class="text-sm opacity-70 mt-4">
+            <p><strong>Export:</strong> Save notes from database to local files</p>
+            <p><strong>Import:</strong> Load changes from local files back to database</p>
           </div>
 
           <%= if @last_sync do %>
