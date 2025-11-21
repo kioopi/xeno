@@ -1,21 +1,32 @@
 # Editor Integration - Implementation Plan
 
-## Current Status: ✅ Phase 1 Complete - MVP Ready
+## Current Status: ✅ Phase 2.1 Complete - Backend Import Ready
 
 **Last Updated**: 2025-11-21
 
-### Completed Work
+### Completed Work - Phase 1 (Export Pipeline)
 - ✅ **Xeno.Sync.Exporter** - Pure export functions (11 tests passing)
 - ✅ **Xeno.Sync.TreeBuilder** - Directory tree logic (10 tests passing)
-- ✅ **Xeno.Sync** - Public API context (6 tests passing)
+- ✅ **Xeno.Sync** - Public API context for export (6 tests passing)
 - ✅ **XenoWeb.SyncLive** - Full sync UI with File System API integration (18 tests passing)
 - ✅ **FileSystemHook** - JS hook for directory picker and file writing
 - ✅ **DirectoryHandleStore** - IndexedDB persistence for directory handles
 - ✅ Route added at `/sync` for manual testing
-- ✅ **Total**: 45 new tests, all passing
+
+### Completed Work - Phase 2.1 (Import Pipeline Backend)
+- ✅ **Xeno.Sync.Importer** - File import with validation (19 tests passing)
+  - `parse_markdown/1` - Extract text from markdown files
+  - `parse_metadata/1` - Parse JSON metadata with error handling
+  - `validate_metadata/1` - Validate required fields and UUID format
+  - `import_change/1` - Core import logic with optimistic locking
+- ✅ **Xeno.Sync** - Enhanced with import functions (6 additional tests)
+  - `import_change/1` - Single file import
+  - `import_changes/1` - Batch import with error collection
+- ✅ **Test Coverage**: 25 new tests, all passing (261 total tests passing)
 
 ### Next Steps
-- Phase 2: File watching and import pipeline (FileSystemObserver integration)
+- Phase 2.2: LiveView integration for import events
+- Phase 2.3: JavaScript file reading and manual import UI
 
 ---
 
@@ -451,9 +462,9 @@ export class FileChangeProcessor {
 }
 ```
 
-#### 2.3 Backend - File Import System
+#### 2.3 Backend - File Import System ✅ COMPLETE
 
-**Module**: `Xeno.Sync.Importer`
+**Module**: `Xeno.Sync.Importer` (Implemented at `lib/xeno/sync/importer.ex`)
 
 ```elixir
 defmodule Xeno.Sync.Importer do
@@ -471,12 +482,10 @@ defmodule Xeno.Sync.Importer do
   - note_id: UUID from JSON metadata
   - markdown_content: Updated text content
   - json_metadata: Updated tags, data, etc.
-  - change_type: :modified | :created | :deleted
 
   Returns:
   - {:ok, updated_note} on success
-  - {:error, changeset} on validation failure
-  - {:error, :stale_record} on version conflict
+  - {:error, reason} on validation failure or version conflict
   """
   def import_change(attrs) :: {:ok, Note.t()} | {:error, term()}
 
@@ -491,20 +500,25 @@ defmodule Xeno.Sync.Importer do
 end
 ```
 
-**Tests**:
-- `test/xeno/sync/importer_test.exs`
-  - `test "import_change/1 updates note with new content"`
-  - `test "import_change/1 handles version conflicts"`
-  - `test "import_change/1 validates required metadata fields"`
-  - `test "parse_markdown/1 extracts text content"`
-  - `test "parse_metadata/1 decodes valid JSON"`
-  - `test "parse_metadata/1 returns error for invalid JSON"`
-  - `test "validate_metadata/1 checks for id field"`
-  - `test "validate_metadata/1 checks for version field"`
+**Tests**: ✅ COMPLETE
+- `test/xeno/sync/importer_test.exs` - 19 tests passing
+  - ✅ `test "parse_markdown/1 extracts text content"`
+  - ✅ `test "parse_markdown/1 handles nil and empty content"`
+  - ✅ `test "parse_metadata/1 decodes valid JSON"`
+  - ✅ `test "parse_metadata/1 returns error for invalid JSON"`
+  - ✅ `test "validate_metadata/1 checks for id field"`
+  - ✅ `test "validate_metadata/1 checks for version field"`
+  - ✅ `test "validate_metadata/1 validates UUID format"`
+  - ✅ `test "import_change/1 updates note with new content"`
+  - ✅ `test "import_change/1 updates note metadata (name, tags, data)"`
+  - ✅ `test "import_change/1 handles version conflicts (optimistic locking)"`
+  - ✅ `test "import_change/1 validates required metadata fields"`
+  - ✅ `test "import_change/1 preserves unchanged fields"`
+  - Plus additional edge cases
 
-#### 2.4 Backend - Sync Context
+#### 2.4 Backend - Sync Context ✅ COMPLETE
 
-**Module**: `Xeno.Sync`
+**Module**: `Xeno.Sync` (Enhanced at `lib/xeno/sync.ex`)
 
 ```elixir
 defmodule Xeno.Sync do
@@ -549,13 +563,16 @@ defmodule Xeno.Sync do
 end
 ```
 
-**Tests**:
-- `test/xeno/sync_test.exs`
-  - `test "export_all/0 returns all notes with paths"`
-  - `test "export_note/1 returns single note content"`
-  - `test "import_changes/1 processes batch successfully"`
-  - `test "import_changes/1 reports failures and successes"`
-  - `test "import_change/1 delegates to Importer"`
+**Tests**: ✅ COMPLETE
+- `test/xeno/sync_test.exs` - 12 tests passing (6 export + 6 import)
+  - ✅ `test "export_all/0 returns all notes with paths"`
+  - ✅ `test "export_note/1 returns single note content"`
+  - ✅ `test "import_change/1 delegates to Importer"`
+  - ✅ `test "import_changes/1 processes batch successfully"`
+  - ✅ `test "import_changes/1 reports failures and successes separately"`
+  - ✅ `test "import_changes/1 continues processing after individual failures"`
+  - ✅ `test "import_changes/1 returns summary statistics"`
+  - Plus export edge cases
 
 #### 2.5 LiveView - Change Handling
 
@@ -934,13 +951,13 @@ if (!hasFileSystemAccess || !hasFileSystemObserver) {
 
 ## Implementation Summary (2025-11-21)
 
-### What Was Built
-A complete **MVP** for the Editor Integration feature following strict TDD principles:
+### Phase 1: Export Pipeline ✅ COMPLETE
+A complete **MVP** for exporting notes to the file system following strict TDD principles:
 
 1. **Backend Export Pipeline** - Complete and tested
    - `Xeno.Sync.Exporter` - Converts notes to markdown and JSON
    - `Xeno.Sync.TreeBuilder` - Builds directory hierarchy
-   - `Xeno.Sync` - Public API context
+   - `Xeno.Sync` - Public API context (export functions)
 
 2. **JavaScript File System Integration** - Complete and working
    - `FileSystemHook` - LiveView hook for File System API
@@ -957,23 +974,45 @@ A complete **MVP** for the Editor Integration feature following strict TDD princ
    - Preview mode for development
    - Accessible at `/sync` route
 
-4. **Test Coverage** - 45 new tests, all passing
+4. **Test Coverage** - 45 tests passing
    - 11 tests for Exporter
    - 10 tests for TreeBuilder
-   - 6 tests for Sync context
+   - 6 tests for Sync context (export)
    - 18 tests for LiveView (including hook integration)
+
+### Phase 2.1: Import Pipeline Backend ✅ COMPLETE
+Complete backend infrastructure for importing file changes from filesystem to database:
+
+1. **Backend Import Pipeline** - Complete and tested
+   - `Xeno.Sync.Importer` - Parses and validates file changes
+   - `parse_markdown/1` - Extract text from markdown files
+   - `parse_metadata/1` - Parse JSON metadata with error handling
+   - `validate_metadata/1` - Validate required fields and UUID format
+   - `import_change/1` - Core import logic with optimistic locking
+
+2. **Sync Context Enhancement** - Batch processing
+   - `import_change/1` - Single file import delegation
+   - `import_changes/1` - Batch processor with error collection
+   - Continues processing on individual failures
+   - Returns detailed statistics (imported, failed, errors)
+
+3. **Test Coverage** - 25 new tests passing (70 total for sync)
+   - 19 tests for Importer (parse, validate, import)
+   - 6 tests for Sync context (import functions)
+   - **Total project**: 261 tests passing
 
 ### Key Decisions Made
 - **TDD First**: All backend code written test-first
-- **Pure Functions**: Exporter uses pure functions for easy testing
+- **Pure Functions**: Easy to test and reason about
 - **Modular Design**: Clean separation of concerns
 - **File Format**: Separate .md and .json files per note
 - **Path Calculation**: Leverages existing ltree-based directory structure
-- **IndexedDB Persistence**: Directory handles persist across page reloads
-- **Progressive Enhancement**: Manual testing for browser APIs
+- **Optimistic Locking**: Version conflicts detected and reported
+- **Error Handling**: Clear error messages for validation failures
+- **Batch Processing**: Continues on failures, collects errors
 
 ### What's Next
-1. **File Watching** - FileSystemObserver integration (Phase 2.1)
-2. **Import Pipeline** - Read changes from filesystem and sync to DB (Phase 2.3)
-3. **Conflict Resolution** - Handle version conflicts (Phase 3.1)
-4. **Bidirectional Sync** - Database → Filesystem updates (Phase 4)
+1. **Phase 2.2**: LiveView integration - Add `file_changed` event handler
+2. **Phase 2.3**: JavaScript file reader - Read `.md` and `.json` from filesystem
+3. **Phase 2.4**: Manual import UI - Add "Import Changes" button
+4. **Phase 3**: Conflict resolution UI and automatic file watching
