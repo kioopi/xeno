@@ -116,7 +116,7 @@ defmodule XenoWeb.SyncLiveTest do
 
       html =
         view
-        |> element("#export-all-btn")
+        |> element("#export-all-preview-btn")
         |> render_click()
 
       assert html =~ "First Note"
@@ -147,10 +147,145 @@ defmodule XenoWeb.SyncLiveTest do
 
       html =
         view
-        |> element("#export-all-btn")
+        |> element("#export-all-preview-btn")
         |> render_click()
 
       assert html =~ "2 notes"
+    end
+  end
+
+  describe "directory connection" do
+    test "shows connect button when not connected", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      assert has_element?(view, "#connect-directory-btn")
+      refute has_element?(view, "#export-all-btn")
+    end
+
+    test "connect_directory event pushes request to client", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      view
+      |> element("#connect-directory-btn")
+      |> render_click()
+
+      assert_push_event(view, "request_directory", %{})
+    end
+
+    test "directory_connected event updates status", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+
+      assert has_element?(view, "#export-all-btn")
+      assert has_element?(view, "#disconnect-directory-btn")
+
+      html = render(view)
+      assert html =~ "Connected to folder: TestFolder"
+    end
+
+    test "directory_connected event without name still works", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+
+      assert has_element?(view, "#export-all-btn")
+      html = render(view)
+      assert html =~ "Connected to folder"
+    end
+
+    test "disconnect_directory event pushes disconnect to client", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+
+      view
+      |> element("#disconnect-directory-btn")
+      |> render_click()
+
+      assert_push_event(view, "disconnect_directory", %{})
+    end
+
+    test "directory_disconnected event clears status", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+      render_hook(view, "directory_disconnected", %{})
+
+      assert has_element?(view, "#connect-directory-btn")
+      refute has_element?(view, "#export-all-btn")
+    end
+
+    test "directory_error event shows error message", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_error", %{"message" => "Permission denied"})
+
+      html = render(view)
+      assert html =~ "Permission denied"
+    end
+  end
+
+  describe "export_all event" do
+    test "pushes write_files event to client when connected", %{conn: conn} do
+      directory = generate(directory(path: "test"))
+      note_type = generate(note_type(name: "Note"))
+
+      _note = generate(
+        note(
+          name: "Test Note",
+          text: "Content",
+          directory_id: directory.id,
+          note_type_id: note_type.id
+        )
+      )
+
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+
+      view
+      |> element("#export-all-btn")
+      |> render_click()
+
+      assert_push_event(view, "write_files", %{files: files})
+      assert length(files) > 0
+
+      first_file = List.first(files)
+      assert Map.has_key?(first_file, :path)
+      assert Map.has_key?(first_file, :markdown)
+      assert Map.has_key?(first_file, :json)
+    end
+
+    test "export_progress updates status", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+      render_hook(view, "export_progress", %{"current" => 5, "total" => 10})
+
+      html = render(view)
+      assert html =~ "Exporting 5/10"
+    end
+
+    test "export_complete shows success and updates last_sync", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+      render_hook(view, "export_complete", %{"count" => 10})
+
+      html = render(view)
+      assert html =~ "Successfully exported 10 note(s)"
+      assert html =~ "Last sync:"
+    end
+
+    test "export_error shows error message", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+      render_hook(view, "export_error", %{"message" => "Write failed"})
+
+      html = render(view)
+      assert html =~ "Export failed: Write failed"
     end
   end
 end

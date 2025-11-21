@@ -1,6 +1,6 @@
 # Editor Integration - Implementation Plan
 
-## Current Status: ✅ Phase 1 PoC Complete
+## Current Status: ✅ Phase 1 Complete - MVP Ready
 
 **Last Updated**: 2025-11-21
 
@@ -8,13 +8,14 @@
 - ✅ **Xeno.Sync.Exporter** - Pure export functions (11 tests passing)
 - ✅ **Xeno.Sync.TreeBuilder** - Directory tree logic (10 tests passing)
 - ✅ **Xeno.Sync** - Public API context (6 tests passing)
-- ✅ **XenoWeb.SyncLive** - UI preview interface (7 tests passing)
+- ✅ **XenoWeb.SyncLive** - Full sync UI with File System API integration (18 tests passing)
+- ✅ **FileSystemHook** - JS hook for directory picker and file writing
+- ✅ **DirectoryHandleStore** - IndexedDB persistence for directory handles
 - ✅ Route added at `/sync` for manual testing
-- ✅ **Total**: 34 new tests, all passing
+- ✅ **Total**: 45 new tests, all passing
 
 ### Next Steps
-- Phase 1.3: JavaScript File System Access API integration
-- Phase 2: File watching and import pipeline
+- Phase 2: File watching and import pipeline (FileSystemObserver integration)
 
 ---
 
@@ -176,57 +177,50 @@ end
   - ✅ `test "handles root level directories"`
   - Plus nested directory and edge case tests
 
-#### 1.3 Frontend - File System Hook ⏳ TODO
-
-**File**: `assets/js/hooks/file_system_hook.js`
-
-```javascript
-/**
- * FileSystemHook
- *
- * Manages File System API interactions:
- * - Request directory access
- * - Persist directory handles
- * - Write files to local file system
- * - Read file changes
- */
-export const FileSystemHook = {
-  mounted() {
-    this.directoryHandle = null;
-    this.handleEvent("request_directory", this.requestDirectory.bind(this));
-    this.handleEvent("write_files", this.writeFiles.bind(this));
-    this.loadPersistedHandle();
-  },
-
-  async requestDirectory() {
-    // Use showDirectoryPicker()
-    // Store handle in IndexedDB
-    // Push success/error to LiveView
-  },
-
-  async writeFiles(payload) {
-    // Recursively create directories
-    // Write .md and .json files
-    // Report progress/completion
-  },
-
-  async loadPersistedHandle() {
-    // Retrieve from IndexedDB
-    // Verify permission
-    // Push handle status to LiveView
-  }
-};
-```
-
-**Tests**: Manual browser testing initially (File System API not available in jsdom)
-
-#### 1.4 LiveView - Sync Management UI ✅ COMPLETE (PoC Version)
-
-**Status**: Preview-only UI implemented. Shows export preview without actual file writing.
+#### 1.3 Frontend - File System Hook ✅ COMPLETE
 
 **Files**:
-- `lib/xeno_web/live/sync_live.ex` (Implemented)
-- `lib/xeno_web/live/sync_live.html.heex` (Implemented)
+- `assets/js/hooks/file_system_hook.js` (Implemented)
+- `assets/js/directory_handle_store.js` (Implemented)
+- Registered in `assets/js/app.js`
+
+**Functionality**:
+- ✅ Request directory access via `showDirectoryPicker()`
+- ✅ Persist directory handles in IndexedDB
+- ✅ Write `.md` and `.json` files to local file system
+- ✅ Create nested directory structures automatically
+- ✅ Verify and re-request permissions as needed
+- ✅ Report progress during export operations
+- ✅ Handle connection/disconnection lifecycle
+- ✅ Graceful error handling and user feedback
+
+**Key Features**:
+```javascript
+// DirectoryHandleStore - IndexedDB persistence
+- storeHandle() - Save FileSystemDirectoryHandle
+- getHandleWithPermission() - Load and verify permissions
+- clearHandle() - Remove stored handle
+
+// FileSystemHook - LiveView integration
+- requestDirectory() - Show directory picker
+- writeFiles() - Write note files to filesystem
+- loadPersistedHandle() - Auto-reconnect on page load
+- writeNoteFiles() - Create .md and .json pairs
+```
+
+**Tests**: Manual browser testing (File System API not available in automated tests)
+- ✅ Verified in Chrome with File System Access API support
+- ✅ Directory picker works correctly
+- ✅ Files written successfully with proper structure
+- ✅ IndexedDB persistence working across page reloads
+
+#### 1.4 LiveView - Sync Management UI ✅ COMPLETE (Full Implementation)
+
+**Status**: Full sync UI with File System API integration. Users can connect folders and export notes.
+
+**Files**:
+- `lib/xeno_web/live/sync_live.ex` (Implemented with 10 event handlers)
+- `lib/xeno_web/live/sync_live.html.heex` (Implemented with full UI)
 - Route: `/sync` added to router
 
 ```elixir
@@ -289,12 +283,22 @@ end
 ```
 
 **Tests**: ✅ COMPLETE
-- `test/xeno_web/live/sync_live_test.exs` - 7 tests passing
+- `test/xeno_web/live/sync_live_test.exs` - 18 tests passing
   - ✅ `test "mount/3 renders sync page"`
   - ✅ `test "export_preview event generates file preview"`
   - ✅ `test "displays markdown content"`
   - ✅ `test "displays JSON metadata"`
   - ✅ `test "export_all_preview shows all notes"`
+  - ✅ `test "connect_directory event pushes request to client"`
+  - ✅ `test "directory_connected event updates status"`
+  - ✅ `test "disconnect_directory event pushes disconnect to client"`
+  - ✅ `test "directory_disconnected event clears status"`
+  - ✅ `test "directory_error event shows error message"`
+  - ✅ `test "export_all pushes write_files event to client"`
+  - ✅ `test "export_progress updates status"`
+  - ✅ `test "export_complete shows success and updates last_sync"`
+  - ✅ `test "export_error shows error message"`
+  - Plus additional edge case tests
 
 **Additional Context Module**: `Xeno.Sync` (Implemented at `lib/xeno/sync.ex`)
 - Public API coordinating Exporter and TreeBuilder
@@ -903,12 +907,15 @@ if (!hasFileSystemAccess || !hasFileSystemObserver) {
 - ✅ UI displays preview of exported content
 - ✅ Code is modular and ready for File System API integration
 
-### MVP (Minimum Viable Product) - 🚧 IN PROGRESS
-- ⏳ User can connect local folder (JS File System API needed)
-- ⏳ User can export all notes to local folder (JS file writing needed)
-- ⏳ Changes to .md files sync back to database (Phase 2)
-- ⏳ Basic error messages shown for failures
-- ⏳ Last sync timestamp displayed
+### MVP (Minimum Viable Product) - ✅ COMPLETE
+- ✅ User can connect local folder (File System API integrated)
+- ✅ User can export all notes to local folder (Files written successfully)
+- ⏳ Changes to .md files sync back to database (Phase 2 - next step)
+- ✅ Basic error messages shown for failures
+- ✅ Last sync timestamp displayed
+- ✅ Connection status persists across page reloads
+- ✅ Directory structure mirrors database hierarchy
+- ✅ Progress indicators during export
 
 ### V1.0 - ⏳ TODO
 - ⏳ FileSystemObserver auto-detects changes
@@ -928,33 +935,45 @@ if (!hasFileSystemAccess || !hasFileSystemObserver) {
 ## Implementation Summary (2025-11-21)
 
 ### What Was Built
-A complete **Proof of Concept** for the Editor Integration feature following strict TDD principles:
+A complete **MVP** for the Editor Integration feature following strict TDD principles:
 
 1. **Backend Export Pipeline** - Complete and tested
    - `Xeno.Sync.Exporter` - Converts notes to markdown and JSON
    - `Xeno.Sync.TreeBuilder` - Builds directory hierarchy
    - `Xeno.Sync` - Public API context
 
-2. **LiveView UI** - Preview interface working
-   - Single note preview showing markdown + JSON
-   - Bulk export preview showing all notes with paths
+2. **JavaScript File System Integration** - Complete and working
+   - `FileSystemHook` - LiveView hook for File System API
+   - `DirectoryHandleStore` - IndexedDB persistence layer
+   - Directory picker integration
+   - File writing with nested directory support
+   - Permission management and error handling
+
+3. **LiveView UI** - Full sync interface
+   - Directory connection management
+   - Export functionality with progress tracking
+   - Connection status persistence
+   - Error handling and user feedback
+   - Preview mode for development
    - Accessible at `/sync` route
 
-3. **Test Coverage** - 34 new tests, all passing
+4. **Test Coverage** - 45 new tests, all passing
    - 11 tests for Exporter
    - 10 tests for TreeBuilder
    - 6 tests for Sync context
-   - 7 tests for LiveView
+   - 18 tests for LiveView (including hook integration)
 
 ### Key Decisions Made
-- **TDD First**: All code written test-first
+- **TDD First**: All backend code written test-first
 - **Pure Functions**: Exporter uses pure functions for easy testing
 - **Modular Design**: Clean separation of concerns
 - **File Format**: Separate .md and .json files per note
 - **Path Calculation**: Leverages existing ltree-based directory structure
+- **IndexedDB Persistence**: Directory handles persist across page reloads
+- **Progressive Enhancement**: Manual testing for browser APIs
 
 ### What's Next
-1. **JavaScript Integration** - File System Access API hooks
-2. **Actual File Writing** - Write markdown/JSON to local filesystem
-3. **File Watching** - FileSystemObserver integration
-4. **Import Pipeline** - Phase 2 implementation
+1. **File Watching** - FileSystemObserver integration (Phase 2.1)
+2. **Import Pipeline** - Read changes from filesystem and sync to DB (Phase 2.3)
+3. **Conflict Resolution** - Handle version conflicts (Phase 3.1)
+4. **Bidirectional Sync** - Database → Filesystem updates (Phase 4)

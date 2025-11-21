@@ -1,13 +1,105 @@
 <Layouts.app flash={@flash}>
-  <div id="sync-container" class="max-w-6xl mx-auto p-6">
+  <div id="sync-container" phx-hook="FileSystem" class="max-w-6xl mx-auto p-6">
     <h1 class="text-3xl font-bold mb-6">Editor Integration</h1>
 
     <div class="card bg-base-200 mb-6">
       <div class="card-body">
-        <h2 class="card-title">Export Preview (PoC)</h2>
+        <h2 class="card-title">Local Folder Connection</h2>
         <p class="text-sm opacity-70 mb-4">
-          This is a proof of concept demonstrating the note export functionality.
-          Select a note to preview its markdown and JSON metadata.
+          Connect a local folder to sync your notes for editing with external editors like VS Code or Vim.
+        </p>
+
+        <%= if @directory_connected do %>
+          <div class="alert alert-success mb-4">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="stroke-current shrink-0 h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span>
+              Connected to folder<%= if @directory_name, do: ": #{@directory_name}", else: "" %>
+            </span>
+          </div>
+
+          <div class="flex gap-4">
+            <button
+              id="export-all-btn"
+              phx-click="export_all"
+              disabled={@sync_status != :idle}
+              class={[
+                "btn btn-primary",
+                @sync_status != :idle && "btn-disabled"
+              ]}
+            >
+              <%= cond do %>
+                <% @sync_status == :exporting -> %>
+                  Exporting...
+                <% match?({:exporting, _, _}, @sync_status) -> %>
+                  <% {_, current, total} = @sync_status %>
+                  Exporting {current}/{total}
+                <% true -> %>
+                  Export All Notes
+              <% end %>
+            </button>
+
+            <button
+              id="disconnect-directory-btn"
+              phx-click="disconnect_directory"
+              class="btn btn-outline"
+            >
+              Disconnect Folder
+            </button>
+          </div>
+
+          <%= if @last_sync do %>
+            <p class="text-sm opacity-70 mt-4">
+              Last sync: {Calendar.strftime(@last_sync, "%Y-%m-%d %H:%M:%S")}
+            </p>
+          <% end %>
+        <% else %>
+          <button id="connect-directory-btn" phx-click="connect_directory" class="btn btn-primary">
+            Choose Folder
+          </button>
+
+          <p class="text-xs opacity-60 mt-4">
+            Note: This feature requires Chrome 86+ or Edge 86+
+          </p>
+        <% end %>
+      </div>
+    </div>
+
+    <%= if @error do %>
+      <div class="alert alert-error mb-6">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="stroke-current shrink-0 h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <span>{@error}</span>
+      </div>
+    <% end %>
+
+    <div class="card bg-base-200 mb-6">
+      <div class="card-body">
+        <h2 class="card-title">Export Preview (Development)</h2>
+        <p class="text-sm opacity-70 mb-4">
+          Preview what the exported files will look like without writing to disk.
         </p>
 
         <div class="flex gap-4">
@@ -15,15 +107,15 @@
             id="export-preview-btn"
             phx-click="export_preview"
             phx-value-note_id="64b3b4b0-ea00-43a4-901c-cb0294b66fe1"
-            class="btn btn-primary"
+            class="btn btn-secondary btn-sm"
           >
             Preview Single Note
           </button>
 
           <button
-            id="export-all-btn"
+            id="export-all-preview-btn"
             phx-click="export_all_preview"
-            class="btn btn-secondary"
+            class="btn btn-secondary btn-sm"
           >
             Preview All Notes
           </button>
