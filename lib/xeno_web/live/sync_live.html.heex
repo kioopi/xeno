@@ -1,0 +1,81 @@
+<Layouts.app flash={@flash}>
+  <div id="sync-container" class="max-w-6xl mx-auto p-6">
+    <h1 class="text-3xl font-bold mb-6">Editor Integration</h1>
+
+    <div class="card bg-base-200 mb-6">
+      <div class="card-body">
+        <h2 class="card-title">Export Preview (PoC)</h2>
+        <p class="text-sm opacity-70 mb-4">
+          This is a proof of concept demonstrating the note export functionality.
+          Select a note to preview its markdown and JSON metadata.
+        </p>
+
+        <div class="flex gap-4">
+          <button
+            id="export-preview-btn"
+            phx-click="export_preview"
+            phx-value-note_id="64b3b4b0-ea00-43a4-901c-cb0294b66fe1"
+            class="btn btn-primary"
+          >
+            Preview Single Note
+          </button>
+
+          <button
+            id="export-all-btn"
+            phx-click="export_all_preview"
+            class="btn btn-secondary"
+          >
+            Preview All Notes
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <%= if @preview_mode == :single && @preview_data do %>
+      <div id="preview-container" class="space-y-6">
+        <div class="card bg-base-200">
+          <div class="card-body">
+            <h3 class="card-title">Markdown Content (.md file)</h3>
+            <pre
+              id="markdown-preview"
+              class="whitespace-pre-wrap font-mono text-sm bg-base-300 p-4 rounded-lg overflow-x-auto"
+            >{@preview_data.markdown}</pre>
+          </div>
+        </div>
+
+        <div class="card bg-base-200">
+          <div class="card-body">
+            <h3 class="card-title">JSON Metadata (.json file)</h3>
+            <pre
+              id="json-preview"
+              class="whitespace-pre-wrap font-mono text-sm bg-base-300 p-4 rounded-lg overflow-x-auto"
+            >{@preview_data.json}</pre>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <%= if @preview_mode == :all && @preview_data do %>
+      <div id="preview-container" class="space-y-6">
+        <div class="alert alert-info">
+          <span>Ready to export {@preview_data.count} notes</span>
+        </div>
+
+        <div :for={item <- @preview_data.items} class="card bg-base-200 mb-4">
+          <div class="card-body">
+            <h3 class="card-title text-lg">
+              {item.note.name}
+              <span class="badge badge-neutral text-xs">{item.path}</span>
+            </h3>
+
+            <div class="divider">Markdown</div>
+            <pre class="whitespace-pre-wrap font-mono text-xs bg-base-300 p-3 rounded max-h-40 overflow-auto">{item.markdown}</pre>
+
+            <div class="divider">JSON Metadata</div>
+            <pre class="whitespace-pre-wrap font-mono text-xs bg-base-300 p-3 rounded max-h-40 overflow-auto">{item.json}</pre>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</Layouts.app>

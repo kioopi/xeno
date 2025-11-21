@@ -22,6 +22,8 @@ defmodule XenoWeb.Router do
 
     live "/notes/:id", NoteShowLive
     live "/notes/:id/edit", NoteEditLive
+
+    live "/sync", SyncLive
   end
 
   # Other scopes may use custom stacks.
