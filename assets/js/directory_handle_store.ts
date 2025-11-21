@@ -18,15 +18,12 @@ const DB_VERSION = 1;
 const HANDLE_KEY = 'syncDirectory';
 
 export class DirectoryHandleStore {
-  constructor() {
-    this.db = null;
-  }
+  private db: IDBDatabase | null = null;
 
   /**
    * Initialize IndexedDB connection
-   * @returns {Promise<IDBDatabase>}
    */
-  async init() {
+  async init(): Promise<IDBDatabase> {
     if (this.db) {
       return this.db;
     }
@@ -43,8 +40,8 @@ export class DirectoryHandleStore {
         resolve(this.db);
       };
 
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
+      request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+        const db = (event.target as IDBOpenDBRequest).result;
 
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME);
@@ -55,14 +52,12 @@ export class DirectoryHandleStore {
 
   /**
    * Store a directory handle in IndexedDB
-   * @param {FileSystemDirectoryHandle} handle - The directory handle to store
-   * @returns {Promise<void>}
    */
-  async storeHandle(handle) {
+  async storeHandle(handle: FileSystemDirectoryHandle): Promise<void> {
     await this.init();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORE_NAME], 'readwrite');
+      const transaction = this.db!.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.put(handle, HANDLE_KEY);
 
@@ -73,13 +68,12 @@ export class DirectoryHandleStore {
 
   /**
    * Retrieve the stored directory handle
-   * @returns {Promise<FileSystemDirectoryHandle|null>}
    */
-  async getHandle() {
+  async getHandle(): Promise<FileSystemDirectoryHandle | null> {
     await this.init();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORE_NAME], 'readonly');
+      const transaction = this.db!.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.get(HANDLE_KEY);
 
@@ -95,12 +89,12 @@ export class DirectoryHandleStore {
 
   /**
    * Check if handle has the required permissions
-   * @param {FileSystemDirectoryHandle} handle - The handle to check
-   * @param {boolean} readWrite - Whether to check for write permission
-   * @returns {Promise<boolean>}
    */
-  async verifyPermission(handle, readWrite = true) {
-    const options = {};
+  async verifyPermission(
+    handle: FileSystemDirectoryHandle,
+    readWrite: boolean = true
+  ): Promise<boolean> {
+    const options: FileSystemHandlePermissionDescriptor = {};
 
     if (readWrite) {
       options.mode = 'readwrite';
@@ -122,13 +116,12 @@ export class DirectoryHandleStore {
 
   /**
    * Clear the stored directory handle
-   * @returns {Promise<void>}
    */
-  async clearHandle() {
+  async clearHandle(): Promise<void> {
     await this.init();
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORE_NAME], 'readwrite');
+      const transaction = this.db!.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       const request = store.delete(HANDLE_KEY);
 
@@ -139,9 +132,8 @@ export class DirectoryHandleStore {
 
   /**
    * Get handle with automatic permission verification
-   * @returns {Promise<FileSystemDirectoryHandle|null>}
    */
-  async getHandleWithPermission() {
+  async getHandleWithPermission(): Promise<FileSystemDirectoryHandle | null> {
     try {
       const handle = await this.getHandle();
 

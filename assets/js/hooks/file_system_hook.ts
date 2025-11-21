@@ -19,7 +19,30 @@
 
 import { DirectoryHandleStore } from '../directory_handle_store';
 
-export const FileSystemHook = {
+interface FileToWrite {
+  path: string;
+  markdown: string;
+  json: string;
+}
+
+interface WriteFilesPayload {
+  files: FileToWrite[];
+}
+
+interface LiveViewHook {
+  pushEvent(event: string, payload: Record<string, any>): void;
+  handleEvent(event: string, callback: (payload: any) => void): void;
+}
+
+export const FileSystemHook: LiveViewHook & {
+  mounted(this: LiveViewHook): void;
+  destroyed(this: LiveViewHook): void;
+  directoryHandle: FileSystemDirectoryHandle | null;
+  handleStore: DirectoryHandleStore;
+} = {
+  directoryHandle: null,
+  handleStore: null as any,
+
   mounted() {
     this.directoryHandle = null;
     this.handleStore = new DirectoryHandleStore();
@@ -55,7 +78,7 @@ export const FileSystemHook = {
       this.pushEvent('directory_connected', {
         name: handle.name
       });
-    } catch (error) {
+    } catch (error: any) {
       if (error.name === 'AbortError') {
         return;
       }
@@ -104,9 +127,8 @@ export const FileSystemHook = {
 
   /**
    * Write files to the local file system
-   * @param {Object} payload - Contains files array with path, markdown, json
    */
-  async writeFiles(payload) {
+  async writeFiles(payload: WriteFilesPayload) {
     try {
       if (!this.directoryHandle) {
         this.pushEvent('export_error', {
@@ -142,7 +164,7 @@ export const FileSystemHook = {
       this.pushEvent('export_complete', {
         count: written
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error writing files:', error);
       this.pushEvent('export_error', {
         message: error.message || 'Failed to write files'
@@ -152,13 +174,12 @@ export const FileSystemHook = {
 
   /**
    * Write markdown and JSON files for a single note
-   * @param {Object} file - Contains path, markdown, json, metadata
    */
-  async writeNoteFiles(file) {
+  async writeNoteFiles(file: FileToWrite) {
     const pathParts = file.path.split('/');
-    const filename = pathParts.pop();
+    const filename = pathParts.pop()!;
 
-    let currentDir = this.directoryHandle;
+    let currentDir = this.directoryHandle!;
 
     for (const dirName of pathParts) {
       if (dirName) {
