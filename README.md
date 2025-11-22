@@ -40,6 +40,40 @@ This connects to the same Erlang VM as the server, so:
 **Tip**: Keep the server running in one terminal and use the console in another
 terminal for the best development experience.
 
+### Running Tests
+
+#### Elixir Tests
+
+Run the Elixir test suite:
+
+```bash
+mix test
+```
+
+For specific tests:
+
+```bash
+# Run a specific test file
+mix test test/xeno/sync/importer_test.exs
+
+# Run tests matching a pattern
+mix test --only tag_name
+```
+
+#### TypeScript Tests
+
+Run the TypeScript/JavaScript test suite:
+
+```bash
+cd assets
+npm test              # Watch mode (re-runs on file changes)
+npm test -- --run     # Run once
+npm run test:ui       # Interactive UI
+npm run test:coverage # With coverage report
+```
+
+See [`docs/typescript-setup.md`](docs/typescript-setup.md) for more details on the TypeScript setup.
+
 ### Alternative: Single Terminal
 
 If you prefer a single terminal, start with:
