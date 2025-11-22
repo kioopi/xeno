@@ -12,7 +12,7 @@ defmodule Xeno.SyncTest do
     {:ok, note} =
       Xeno.Content.Note.create(%{
         name: "Test Note",
-        filename: "test_note.md",
+        filename: "test_note",
         text: "Test content",
         data: %{"key" => "value"},
         tags: ["test"],
@@ -121,7 +121,7 @@ defmodule Xeno.SyncTest do
       {:ok, note2} =
         Xeno.Content.Note.create(%{
           name: "Second Note",
-          filename: "second_note.md",
+          filename: "second_note",
           text: "Second content",
           directory_id: directory.id,
           note_type_id: note_type.id
@@ -174,7 +174,7 @@ defmodule Xeno.SyncTest do
       {:ok, note2} =
         Xeno.Content.Note.create(%{
           name: "Second Note",
-          filename: "second_note.md",
+          filename: "second_note",
           text: "Second content",
           directory_id: directory.id,
           note_type_id: note_type.id

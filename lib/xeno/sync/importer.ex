@@ -131,7 +131,7 @@ defmodule Xeno.Sync.Importer do
   @doc """
   Finds a note by its file system path.
 
-  Looks up the note by matching both the directory path and filename.
+  Uses the Note.by_file_path action to look up notes by their full path.
 
   ## Examples
 
@@ -142,34 +142,16 @@ defmodule Xeno.Sync.Importer do
       {:error, :not_found}
   """
   def find_note_by_path(path) do
-    with {:ok, directory_path, filename} <- parse_note_path(path),
-         {:ok, note} <- query_note_by_path(directory_path, filename) do
-      {:ok, note}
-    else
-      {:error, :invalid_path} -> {:error, :invalid_path}
-      {:error, :not_found} -> {:error, :not_found}
-    end
-  end
+    case Xeno.Content.Note.by_file_path(path) do
+      {:ok, note} ->
+        {:ok, note}
 
-  defp query_note_by_path(directory_path, filename) do
-    import Ash.Query
-
-    query =
-      Xeno.Content.Note
-      |> filter(filename == ^filename)
-      |> load(:directory)
-
-    case Ash.read(query) do
-      {:ok, notes} ->
-        notes
-        |> Enum.find(fn note -> note.directory.path == directory_path end)
-        |> case do
-          nil -> {:error, :not_found}
-          note -> {:ok, note}
+      {:error, error} ->
+        if Exception.message(error) =~ "Invalid file path" do
+          {:error, :invalid_path}
+        else
+          {:error, :not_found}
         end
-
-      {:error, _error} ->
-        {:error, :not_found}
     end
   end
 

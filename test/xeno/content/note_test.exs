@@ -31,7 +31,7 @@ defmodule Xeno.Content.NoteTest do
 
       assert {:ok, note} = Note.create(attrs)
       assert note.name == "My Note"
-      assert note.filename == "my_note.md"
+      assert note.filename == "my_note"
       assert note.text == "Template text"
       assert note.data == %{"key" => "value"}
       assert note.tags == ["template", "test"]
@@ -46,25 +46,25 @@ defmodule Xeno.Content.NoteTest do
       }
 
       assert {:ok, note} = Note.create(attrs)
-      assert note.filename == "special_characters_spaces.md"
+      assert note.filename == "special_characters_spaces"
     end
 
     test "uses provided filename when given", %{directory: dir, note_type: type} do
       attrs = %{
         name: "My Note",
-        filename: "custom_filename.md",
+        filename: "custom_filename",
         directory_id: dir.id,
         note_type_id: type.id
       }
 
       assert {:ok, note} = Note.create(attrs)
-      assert note.filename == "custom_filename.md"
+      assert note.filename == "custom_filename"
     end
 
     test "enforces unique filename within directory", %{directory: dir, note_type: type} do
       attrs = %{
         name: "First",
-        filename: "same.md",
+        filename: "same",
         directory_id: dir.id,
         note_type_id: type.id
       }
@@ -81,14 +81,14 @@ defmodule Xeno.Content.NoteTest do
 
       attrs1 = %{
         name: "Note",
-        filename: "same.md",
+        filename: "same",
         directory_id: dir1.id,
         note_type_id: type.id
       }
 
       attrs2 = %{
         name: "Note",
-        filename: "same.md",
+        filename: "same",
         directory_id: dir2.id,
         note_type_id: type.id
       }
@@ -203,12 +203,78 @@ defmodule Xeno.Content.NoteTest do
       {:ok, note} =
         Note.create(%{
           name: "Findable",
-          filename: "find_me.md",
+          filename: "find_me",
           directory_id: dir.id,
           note_type_id: type.id
         })
 
-      assert {:ok, found} = Note.by_filename(dir.id, "find_me.md")
+      assert {:ok, found} = Note.by_filename(dir.id, "find_me")
+      assert found.id == note.id
+    end
+  end
+
+  describe "by_file_path/1" do
+    test "finds note by file path with nested directory" do
+      note_type = generate(note_type(name: "Test Type"))
+      work_dir = generate(directory(path: "projects/work", name: "Work"))
+
+      {:ok, note} =
+        Note.create(%{
+          name: "Meeting Notes",
+          filename: "meeting-notes",
+          directory_id: work_dir.id,
+          note_type_id: note_type.id
+        })
+
+      assert {:ok, found} = Note.by_file_path("projects/work/meeting-notes")
+      assert found.id == note.id
+      assert found.filename == "meeting-notes"
+    end
+
+    test "finds note by file path with single-level directory" do
+      note_type = generate(note_type(name: "Test Type"))
+      docs_dir = generate(directory(path: "docs", name: "Docs"))
+
+      {:ok, note} =
+        Note.create(%{
+          name: "Readme",
+          filename: "readme",
+          directory_id: docs_dir.id,
+          note_type_id: note_type.id
+        })
+
+      assert {:ok, found} = Note.by_file_path("docs/readme")
+      assert found.id == note.id
+    end
+
+    test "returns error for non-existent path" do
+      assert {:error, error} = Note.by_file_path("nonexistent/path/note")
+      assert Exception.message(error) =~ "not found"
+    end
+
+    test "returns error for invalid path format" do
+      assert {:error, error} = Note.by_file_path("")
+      assert Exception.message(error) =~ "Invalid file path"
+    end
+
+    test "returns error for path without directory" do
+      assert {:error, error} = Note.by_file_path("note")
+      assert Exception.message(error) =~ "Invalid file path"
+    end
+
+    test "handles deeply nested directory structure" do
+      note_type = generate(note_type(name: "Test Type"))
+      deep_dir = generate(directory(path: "foo/bar/baz/qux", name: "Qux"))
+
+      {:ok, note} =
+        Note.create(%{
+          name: "Deep Note",
+          filename: "deep-note",
+          directory_id: deep_dir.id,
+          note_type_id: note_type.id
+        })
+
+      assert {:ok, found} = Note.by_file_path("foo/bar/baz/qux/deep-note")
       assert found.id == note.id
     end
   end

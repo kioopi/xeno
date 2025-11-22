@@ -12,6 +12,8 @@ defmodule Xeno.Content.Note do
     notifiers: [Ash.Notifier.PubSub]
 
   alias Xeno.Content.Changes
+  alias Xeno.Content.Calculations
+  alias Xeno.Content.Preparations
   alias Xeno.Files.Directory
   alias Xeno.Content.NoteType
 
@@ -23,6 +25,7 @@ defmodule Xeno.Content.Note do
   code_interface do
     define :get, action: :read, get_by: [:id]
     define :by_filename, action: :read, get_by: [:directory_id, :filename]
+    define :by_file_path, action: :by_file_path, args: [:file_path]
     define :in_directory, action: :read, args: [:directory_id]
     define :create, action: :create
     define :update, action: :update
@@ -31,6 +34,19 @@ defmodule Xeno.Content.Note do
 
   actions do
     defaults [:read, :destroy]
+
+    read :by_file_path do
+      description "Find a note by its full file path (directory/path/filename)"
+
+      argument :file_path, :string do
+        allow_nil? false
+        description "Full file path including directory and filename"
+      end
+
+      get? true
+
+      prepare Preparations.ParseFilePath
+    end
 
     create :create do
       primary? true
@@ -139,6 +155,12 @@ defmodule Xeno.Content.Note do
   identities do
     identity :unique_filename_in_directory, [:directory_id, :filename] do
       description "Ensures filenames are unique within a directory"
+    end
+  end
+
+  calculations do
+    calculate :file_path, :string, Calculations.FilePath do
+      description "Full file path without extension (directory path + filename)"
     end
   end
 end

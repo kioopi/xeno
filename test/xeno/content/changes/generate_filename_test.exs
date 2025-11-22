@@ -13,7 +13,7 @@ defmodule Xeno.Content.Changes.GenerateFilenameTest do
   end
 
   describe "generate_filename/2" do
-    test "generates filename from name", %{directory: dir, note_type: type} do
+    test "generates filename from name without extension", %{directory: dir, note_type: type} do
       {:ok, note} =
         Note.create(%{
           name: "My Note",
@@ -21,10 +21,10 @@ defmodule Xeno.Content.Changes.GenerateFilenameTest do
           note_type_id: type.id
         })
 
-      assert note.filename == "my_note.md"
+      assert note.filename == "my_note"
     end
 
-    test "adds .md extension", %{directory: dir, note_type: type} do
+    test "does not add file extension", %{directory: dir, note_type: type} do
       {:ok, note} =
         Note.create(%{
           name: "simple",
@@ -32,7 +32,8 @@ defmodule Xeno.Content.Changes.GenerateFilenameTest do
           note_type_id: type.id
         })
 
-      assert String.ends_with?(note.filename, ".md")
+      refute String.contains?(note.filename, ".")
+      assert note.filename == "simple"
     end
 
     test "handles special characters", %{directory: dir, note_type: type} do
@@ -43,7 +44,7 @@ defmodule Xeno.Content.Changes.GenerateFilenameTest do
           note_type_id: type.id
         })
 
-      assert note.filename == "special_characters.md"
+      assert note.filename == "special_characters"
     end
 
     test "collapses multiple underscores", %{directory: dir, note_type: type} do
@@ -54,31 +55,31 @@ defmodule Xeno.Content.Changes.GenerateFilenameTest do
           note_type_id: type.id
         })
 
-      assert note.filename == "multiple_spaces.md"
+      assert note.filename == "multiple_spaces"
     end
 
     test "only runs when filename not provided", %{directory: dir, note_type: type} do
       {:ok, note} =
         Note.create(%{
           name: "Test",
-          filename: "custom.md",
+          filename: "custom",
           directory_id: dir.id,
           note_type_id: type.id
         })
 
-      assert note.filename == "custom.md"
+      assert note.filename == "custom"
     end
 
     test "doesn't override explicit filename", %{directory: dir, note_type: type} do
       {:ok, note} =
         Note.create(%{
           name: "This Would Generate Different Name",
-          filename: "explicit_name.md",
+          filename: "explicit_name",
           directory_id: dir.id,
           note_type_id: type.id
         })
 
-      assert note.filename == "explicit_name.md"
+      assert note.filename == "explicit_name"
     end
 
     test "removes leading and trailing underscores", %{directory: dir, note_type: type} do
@@ -89,7 +90,7 @@ defmodule Xeno.Content.Changes.GenerateFilenameTest do
           note_type_id: type.id
         })
 
-      assert note.filename == "note.md"
+      assert note.filename == "note"
     end
   end
 end

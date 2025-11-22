@@ -22,7 +22,7 @@ defmodule Xeno.Sync.TreeBuilder do
   """
   def build_sync_tree do
     Xeno.Content.Note
-    |> Ash.Query.load(:directory)
+    |> Ash.Query.load(:file_path)
     |> Ash.read!()
     |> Enum.map(fn note ->
       path = note_file_path(note)
@@ -49,9 +49,9 @@ defmodule Xeno.Sync.TreeBuilder do
   end
 
   @doc """
-  Determines file path for a note based on its directory.
+  Determines file path for a note by accessing its file_path calculation.
 
-  Returns the relative path without the .md extension.
+  Returns the relative path without extension.
 
   ## Examples
 
@@ -59,9 +59,6 @@ defmodule Xeno.Sync.TreeBuilder do
       "projects/web_app/architecture"
   """
   def note_file_path(note) do
-    dir_path = directory_to_path(note.directory)
-    base_filename = String.replace_suffix(note.filename, ".md", "")
-
-    Path.join(dir_path, base_filename)
+    note.file_path
   end
 end

@@ -39,13 +39,13 @@ defmodule Xeno.Sync.TreeBuilderTest do
       note = generate(
         note(
           name: "Architecture",
-          filename: "architecture.md",
+          filename: "architecture",
           directory_id: directory.id,
           note_type_id: note_type.id
         )
       )
 
-      note = Ash.get!(Xeno.Content.Note, note.id, load: [:directory])
+      note = Ash.get!(Xeno.Content.Note, note.id, load: [:file_path])
 
       file_path = TreeBuilder.note_file_path(note)
 
@@ -59,33 +59,33 @@ defmodule Xeno.Sync.TreeBuilderTest do
       note = generate(
         note(
           name: "Meeting Notes",
-          filename: "meeting_notes.md",
+          filename: "meeting_notes",
           directory_id: directory.id,
           note_type_id: note_type.id
         )
       )
 
-      note = Ash.get!(Xeno.Content.Note, note.id, load: [:directory])
+      note = Ash.get!(Xeno.Content.Note, note.id, load: [:file_path])
 
       file_path = TreeBuilder.note_file_path(note)
 
       assert file_path == "work/docs/meeting_notes"
     end
 
-    test "strips .md extension from filename" do
+    test "uses file_path calculation from Note" do
       directory = generate(directory(path: "notes"))
       note_type = generate(note_type(name: "Note"))
 
       note = generate(
         note(
           name: "Test",
-          filename: "test.md",
+          filename: "test",
           directory_id: directory.id,
           note_type_id: note_type.id
         )
       )
 
-      note = Ash.get!(Xeno.Content.Note, note.id, load: [:directory])
+      note = Ash.get!(Xeno.Content.Note, note.id, load: [:file_path])
 
       file_path = TreeBuilder.note_file_path(note)
 
@@ -120,7 +120,7 @@ defmodule Xeno.Sync.TreeBuilderTest do
       note1 = generate(
         note(
           name: "Project Note",
-          filename: "project_note.md",
+          filename: "project_note",
           directory_id: dir1.id,
           note_type_id: note_type.id
         )
@@ -129,7 +129,7 @@ defmodule Xeno.Sync.TreeBuilderTest do
       note2 = generate(
         note(
           name: "Personal Note",
-          filename: "personal_note.md",
+          filename: "personal_note",
           directory_id: dir2.id,
           note_type_id: note_type.id
         )
@@ -152,7 +152,7 @@ defmodule Xeno.Sync.TreeBuilderTest do
       note = generate(
         note(
           name: "Nested Note",
-          filename: "nested.md",
+          filename: "nested",
           directory_id: nested_dir.id,
           note_type_id: note_type.id
         )

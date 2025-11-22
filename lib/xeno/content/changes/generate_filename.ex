@@ -7,7 +7,8 @@ defmodule Xeno.Content.Changes.GenerateFilename do
   - Converting to lowercase
   - Replacing non-alphanumeric characters (except underscores) with underscores
   - Collapsing multiple consecutive underscores into single underscore
-  - Adding .md extension
+
+  Note: Does not add any file extension. Extensions are added during export.
   """
 
   use Ash.Resource.Change
@@ -30,6 +31,5 @@ defmodule Xeno.Content.Changes.GenerateFilename do
     |> String.replace(~r/[^a-z0-9_]+/, "_")
     |> String.replace(~r/_+/, "_")
     |> String.trim("_")
-    |> Kernel.<>(".md")
   end
 end
