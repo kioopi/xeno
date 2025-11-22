@@ -5,10 +5,12 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@awesome.me/webawesome": "^3.0.0"
+    "@awesome.me/webawesome": "^3.0.0",
+    "idb": "^8.0.3"
   },
   "devDependencies": {
     "@vitest/ui": "^3.2.4",
+    "fake-indexeddb": "^6.2.5",
     "happy-dom": "^20.0.10",
     "vitest": "^3.2.4"
   }
