@@ -95,6 +95,9 @@ defmodule Xeno.Sync do
 
     {successes, failures} = Enum.split_with(results, &match?({:ok, _}, &1))
 
+    # TODO: errors should be a map "path/to/filename" -> [errors]
+    # so the output can be more helpful
+
     {:ok,
      %{
        imported: length(successes),

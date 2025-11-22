@@ -25,7 +25,7 @@
               />
             </svg>
             <span>
-              Connected to folder<%= if @directory_name, do: ": #{@directory_name}", else: "" %>
+              Connected to folder{if @directory_name, do: ": #{@directory_name}", else: ""}
             </span>
           </div>
 
@@ -43,8 +43,7 @@
                 <% @sync_status == :exporting -> %>
                   Exporting...
                 <% match?({:exporting, _, _}, @sync_status) -> %>
-                  <% {_, current, total} = @sync_status %>
-                  Exporting {current}/{total}
+                  <% {_, current, total} = @sync_status %> Exporting {current}/{total}
                 <% true -> %>
                   Export All Notes
               <% end %>
@@ -105,6 +104,22 @@
           />
         </svg>
         <span>{@error}</span>
+      </div>
+    <% end %>
+
+    <%= if @sync_errors do %>
+      <div id="error-container" class="space-y-6 mb-6">
+        <div class="card bg-base-200">
+          <div class="card-body">
+            <h3 class="card-title">Sync Errors</h3>
+            <div>There have been errors while importing notes.</div>
+            <ul>
+              <li :for={error <- @sync_errors}>
+                <.error error={error} />
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
     <% end %>
 

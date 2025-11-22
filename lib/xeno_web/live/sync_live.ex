@@ -16,7 +16,8 @@ defmodule XenoWeb.SyncLive do
        directory_name: nil,
        sync_status: :idle,
        last_sync: nil,
-       error: nil
+       error: nil,
+       sync_errors: nil
      )}
   end
 
@@ -145,7 +146,7 @@ defmodule XenoWeb.SyncLive do
   def handle_event("export_complete", %{"count" => count}, socket) do
     {:noreply,
      socket
-     |> assign(sync_status: :idle, last_sync: DateTime.utc_now())
+     |> assign(sync_status: :idle, sync_error: nil, last_sync: DateTime.utc_now())
      |> put_flash(:info, "Successfully exported #{count} note(s)")}
   end
 
@@ -159,7 +160,12 @@ defmodule XenoWeb.SyncLive do
 
   @impl true
   def handle_event("scan_files", _params, socket) do
-    {:noreply, push_event(socket, "scan_files", %{})}
+    socket =
+      socket
+      |> assign(sync_error: nil)
+      |> push_event("scan_files", %{})
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -179,7 +185,7 @@ defmodule XenoWeb.SyncLive do
 
   @impl true
   def handle_event("import_files", %{"changes" => changes}, socket) when is_list(changes) do
-    {:ok, %{imported: imported, failed: failed}} = Sync.import_changes(changes)
+    {:ok, %{imported: imported, failed: failed, errors: errors}} = Sync.import_changes(changes)
 
     socket =
       if failed == 0 do
@@ -193,5 +199,41 @@ defmodule XenoWeb.SyncLive do
       end
 
     {:noreply, socket}
+    {:noreply, assign(socket, sync_errors: errors)}
+  end
+
+  # Component to display error messages
+  def error(%{error: %Ash.Error.Invalid{errors: [%{message: message} | []]}} = assigns) do
+    assigns = Map.put(assigns, :message, message)
+
+    ~H"""
+    <.error_message>{@message}</.error_message>
+    """
+  end
+
+  def error(%{error: %Ash.Error.Invalid{errors: errors}} = assigns) do
+    assigns = Map.put(assigns, :errors, errors)
+
+    ~H"""
+    <ul>
+      <li :for={%{message: msg} <- @errors}>
+        <.error_message>{msg}</.error_message>
+      </li>
+    </ul>
+    """
+  end
+
+  def error(assigns) do
+    ~H"<span></span>"
+  end
+
+  slot :inner_block, required: true
+
+  def error_message(assigns) do
+    ~H"""
+    <div>
+      {render_slot(@inner_block)}
+    </div>
+    """
   end
 end

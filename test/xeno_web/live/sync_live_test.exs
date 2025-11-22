@@ -24,14 +24,15 @@ defmodule XenoWeb.SyncLiveTest do
       directory = generate(directory(path: "test"))
       note_type = generate(note_type(name: "Note"))
 
-      note = generate(
-        note(
-          name: "Test Note",
-          text: "# Test Content\n\nThis is test content.",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      note =
+        generate(
+          note(
+            name: "Test Note",
+            text: "Test Content",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       {:ok, view, _html} = live(conn, ~p"/sync")
 
@@ -40,7 +41,7 @@ defmodule XenoWeb.SyncLiveTest do
       |> render_click(%{"note_id" => note.id})
 
       assert has_element?(view, "#preview-container")
-      assert has_element?(view, "#markdown-preview")
+      assert has_element?(view, "#markdown-preview", note.text)
       assert has_element?(view, "#json-preview")
     end
 
@@ -48,14 +49,15 @@ defmodule XenoWeb.SyncLiveTest do
       directory = generate(directory(path: "test"))
       note_type = generate(note_type(name: "Note"))
 
-      note = generate(
-        note(
-          name: "Test Note",
-          text: "# Unique Test Heading",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      note =
+        generate(
+          note(
+            name: "Test Note",
+            text: "# Unique Test Heading",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       {:ok, view, _html} = live(conn, ~p"/sync")
 
@@ -71,13 +73,14 @@ defmodule XenoWeb.SyncLiveTest do
       directory = generate(directory(path: "test"))
       note_type = generate(note_type(name: "Note"))
 
-      note = generate(
-        note(
-          name: "Test Note",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      note =
+        generate(
+          note(
+            name: "Test Note",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       {:ok, view, _html} = live(conn, ~p"/sync")
 
@@ -96,21 +99,23 @@ defmodule XenoWeb.SyncLiveTest do
       directory = generate(directory(path: "test"))
       note_type = generate(note_type(name: "Note"))
 
-      _note1 = generate(
-        note(
-          name: "First Note",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      _note1 =
+        generate(
+          note(
+            name: "First Note",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
-      _note2 = generate(
-        note(
-          name: "Second Note",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      _note2 =
+        generate(
+          note(
+            name: "Second Note",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       {:ok, view, _html} = live(conn, ~p"/sync")
 
@@ -127,21 +132,23 @@ defmodule XenoWeb.SyncLiveTest do
       directory = generate(directory(path: "test"))
       note_type = generate(note_type(name: "Note"))
 
-      _note1 = generate(
-        note(
-          name: "Note 1",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      _note1 =
+        generate(
+          note(
+            name: "Note 1",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
-      _note2 = generate(
-        note(
-          name: "Note 2",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      _note2 =
+        generate(
+          note(
+            name: "Note 2",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       {:ok, view, _html} = live(conn, ~p"/sync")
 
@@ -231,14 +238,15 @@ defmodule XenoWeb.SyncLiveTest do
       directory = generate(directory(path: "test"))
       note_type = generate(note_type(name: "Note"))
 
-      _note = generate(
-        note(
-          name: "Test Note",
-          text: "Content",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      _note =
+        generate(
+          note(
+            name: "Test Note",
+            text: "Content",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       {:ok, view, _html} = live(conn, ~p"/sync")
 
