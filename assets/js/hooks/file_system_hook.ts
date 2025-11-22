@@ -34,12 +34,28 @@ interface LiveViewHook {
   handleEvent(event: string, callback: (payload: any) => void): void;
 }
 
-export const FileSystemHook: LiveViewHook & {
-  mounted(this: LiveViewHook): void;
-  destroyed(this: LiveViewHook): void;
+// TODO TFileSystemHook should inherit from LiveViewHook
+
+interface TFileSystemHook {
+  pushEvent(event: string, payload: Record<string, any>): void;
+  handleEvent(event: string, callback: (payload: any) => void): void;
+
+  mounted(): void;
+  destroyed(): void;
   directoryHandle: FileSystemDirectoryHandle | null;
   handleStore: DirectoryHandleStore;
-} = {
+  loadPersistedHandle(): Promise<void>;
+  requestDirectory(): Promise<void>;
+  writeFiles(payload: WriteFilesPayload): Promise<void>;
+  disconnectDirectory(): Promise<void>;
+  scanFiles(): Promise<void>;
+  scanForChanges(): Promise<any[]>;
+  writeNoteFiles(file: FileToWrite): Promise<void>;
+  scanDirectory(dirHandle: FileSystemDirectoryHandle, currentPath: string, changes: any[]): Promise<void>;
+  readNoteFiles(path: string): Promise<{ markdown: string, metadata: any } | null>;
+}
+
+export const FileSystemHook: TFileSystemHook = {
   directoryHandle: null,
   handleStore: null as any,
 
@@ -213,6 +229,7 @@ export const FileSystemHook: LiveViewHook & {
       const hasPermission = await this.handleStore.verifyPermission(this.directoryHandle);
 
       if (!hasPermission) {
+        console.error('No permission for', this.directoryHandle);
         this.pushEvent('import_error', {
           message: 'Permission denied. Please reconnect the folder.'
         });
@@ -232,7 +249,7 @@ export const FileSystemHook: LiveViewHook & {
     }
   },
 
-  async readNoteFiles(path: string): Promise<{markdown: string, metadata: any} | null> {
+  async readNoteFiles(path: string): Promise<{ markdown: string, metadata: any } | null> {
     try {
       const pathParts = path.split('/').filter(p => p);
       const filename = pathParts.pop()!;
@@ -254,13 +271,16 @@ export const FileSystemHook: LiveViewHook & {
       const jsonText = await jsonFile.text();
       const metadata = JSON.parse(jsonText);
 
-      return {markdown, metadata};
+      return { markdown, metadata };
     } catch (error) {
       console.error(`Error reading note files at ${path}:`, error);
       return null;
     }
   },
 
+  // TODO: scanDirectory should return a promise with the changes
+  // not alter the changes array it got as an argument
+  // TODO: Add a TypeSctipt interface Change.
   async scanForChanges(): Promise<any[]> {
     if (!this.directoryHandle) {
       return [];
