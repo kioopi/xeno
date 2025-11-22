@@ -60,15 +60,15 @@ defmodule Xeno.Sync.ExporterTest do
   end
 
   describe "to_json_metadata/1" do
-    test "includes all required fields", %{note: note} do
+    test "includes all required fields in new format", %{note: note} do
       metadata = Exporter.to_json_metadata(note)
 
-      assert metadata["id"] == note.id
+      assert metadata["_schema_version"] == "1.0"
+      assert metadata["_id"] == note.id
+      assert metadata["_note"]
       assert metadata["name"] == "Architecture Notes"
-      assert metadata["note_type_id"] == note.note_type_id
-      assert metadata["version"] == 1
-      assert {:ok, %DateTime{}, _} = DateTime.from_iso8601(metadata["inserted_at"])
-      assert {:ok, %DateTime{}, _} = DateTime.from_iso8601(metadata["updated_at"])
+      assert metadata["tags"]
+      assert metadata["data"]
     end
 
     test "includes tags as array", %{note: note} do
@@ -110,7 +110,7 @@ defmodule Xeno.Sync.ExporterTest do
       assert markdown =~ "System Architecture"
 
       metadata = Jason.decode!(json_string)
-      assert metadata["id"] == note.id
+      assert metadata["_id"] == note.id
       assert metadata["name"] == "Architecture Notes"
     end
 
@@ -137,6 +137,76 @@ defmodule Xeno.Sync.ExporterTest do
       assert {:ok, {markdown, json_string}} = Exporter.export_note(minimal_note)
       assert is_binary(markdown)
       assert is_binary(json_string)
+    end
+  end
+
+  describe "to_json_metadata/1 - NEW FORMAT requirements" do
+    test "uses _id instead of id", %{note: note} do
+      metadata = Exporter.to_json_metadata(note)
+
+      assert Map.has_key?(metadata, "_id")
+      assert metadata["_id"] == note.id
+      refute Map.has_key?(metadata, "id")
+    end
+
+    test "includes _schema_version field", %{note: note} do
+      metadata = Exporter.to_json_metadata(note)
+
+      assert metadata["_schema_version"] == "1.0"
+    end
+
+    test "includes _note field with system message", %{note: note} do
+      metadata = Exporter.to_json_metadata(note)
+
+      assert Map.has_key?(metadata, "_note")
+      assert is_binary(metadata["_note"])
+      assert String.contains?(metadata["_note"], "system-generated")
+    end
+
+    test "excludes version field from JSON", %{note: note} do
+      metadata = Exporter.to_json_metadata(note)
+
+      refute Map.has_key?(metadata, "version")
+    end
+
+    test "excludes note_type_id from JSON", %{note: note} do
+      metadata = Exporter.to_json_metadata(note)
+
+      refute Map.has_key?(metadata, "note_type_id")
+    end
+
+    test "excludes inserted_at from JSON", %{note: note} do
+      metadata = Exporter.to_json_metadata(note)
+
+      refute Map.has_key?(metadata, "inserted_at")
+    end
+
+    test "excludes updated_at from JSON", %{note: note} do
+      metadata = Exporter.to_json_metadata(note)
+
+      refute Map.has_key?(metadata, "updated_at")
+    end
+
+    test "keeps only user-editable fields plus system _fields", %{note: note} do
+      metadata = Exporter.to_json_metadata(note)
+
+      keys = Map.keys(metadata)
+      assert length(keys) == 6
+
+      assert "_schema_version" in keys
+      assert "_id" in keys
+      assert "_note" in keys
+      assert "name" in keys
+      assert "tags" in keys
+      assert "data" in keys
+    end
+
+    test "preserves name, tags, and data fields", %{note: note} do
+      metadata = Exporter.to_json_metadata(note)
+
+      assert metadata["name"] == "Architecture Notes"
+      assert metadata["tags"] == ["architecture", "design"]
+      assert metadata["data"] == %{"status" => "draft", "version" => "1.0"}
     end
   end
 end

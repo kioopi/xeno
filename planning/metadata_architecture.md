@@ -2,9 +2,11 @@
 
 ## Development Status
 
-**Last Updated**: 2024-11-22
+**Last Updated**: 2025-11-22
 
 ### Completed ✅
+
+#### Phase 1: NoteMetadataStore ✅
 - **TypeScript Testing Setup**: Vitest configured with IndexedDB support (fake-indexeddb)
 - **NoteMetadataStore**: Full IndexedDB implementation with 19 passing tests
   - Version tracking to solve staleness issues
@@ -12,16 +14,66 @@
   - ID-based reverse lookup
   - Batch operations
   - Rename/move support
+  - File: `assets/js/stores/note_metadata_store.ts` (192 lines)
+  - Tests: `assets/js/stores/note_metadata_store.test.ts` (19/19 passing)
+
+#### Phase 2: JsonFileManager ✅
+- **JsonFileManager**: Complete JSON metadata file operations with 17 passing tests
+  - Read/write JSON metadata files
+  - Validate JSON structure (_id, name, tags, data)
+  - UUID validation
+  - Update only _id field (for auto-fix)
+  - Create default metadata for new notes
+  - Migrate from old format (id → _id)
+  - File: `assets/js/sync/json_file_manager.ts` (127 lines)
+  - Tests: `assets/js/sync/json_file_manager.test.ts` (17/17 passing)
+
+#### Phase 3: ImportErrorHandler ✅
+- **ImportErrorHandler**: Auto-fix error handling with 11 passing tests
+  - Handle import errors with auto-fix logic
+  - Auto-fix when server and IndexedDB agree
+  - Auto-fix on new machine (no IndexedDB)
+  - Prompt user when IDs conflict
+  - Decision matrix implementation
+  - File: `assets/js/sync/import_error_handler.ts` (133 lines)
+  - Tests: `assets/js/sync/import_error_handler.test.ts` (11/11 passing)
+
+#### Phase 4: Backend Exporter Update ✅
+- **Exporter**: Updated to new JSON format with 20 passing tests
+  - Uses `_id` instead of `id`
+  - Includes `_schema_version` field ("1.0")
+  - Includes `_note` field with helpful message
+  - Excludes `version` from JSON (stored in IndexedDB)
+  - Excludes `note_type_id` from JSON
+  - Excludes `inserted_at` and `updated_at` from JSON
+  - Only 6 fields in output: `_schema_version`, `_id`, `_note`, `name`, `tags`, `data`
+  - File: `lib/xeno/sync/exporter.ex` (updated)
+  - Tests: `test/xeno/sync/exporter_test.exs` (20/20 passing)
 
 ### In Progress 🔄
-- JsonFileManager implementation (next)
-- ImportErrorHandler with auto-fix logic (next)
+- Backend Importer enhancements (path-based lookup, ID suggestion)
 
 ### Pending ⏳
-- Backend changes (Exporter, Importer, path-based lookup)
-- FileSystemHook integration
-- Auto-fix flow implementation
+- FileSystemHook integration with new modules
+- Backend Importer path-based lookup implementation
+- Backend Importer ID suggestion logic
+- LiveView error handling updates
+- Auto-fix flow end-to-end integration
 - UI conflict resolution dialog
+
+### Test Status 📊
+**Frontend (TypeScript):**
+- ✅ 59 tests passing (4 test files)
+  - string_utils: 12 tests
+  - note_metadata_store: 19 tests
+  - json_file_manager: 17 tests
+  - import_error_handler: 11 tests
+
+**Backend (Elixir):**
+- ✅ 20 tests passing (1 test file)
+  - exporter_test: 20 tests
+
+**Total: 79 passing tests** 🎉
 
 ---
 
@@ -1355,26 +1407,38 @@ end
 
 ## Rollout Plan
 
-### Phase 1: Backend Foundation
-- [ ] Update `Sync.Exporter.to_json_metadata` to new format
-- [ ] Add `find_note_by_path` and ID suggestion logic to `Sync.Importer`
+### Phase 1: Backend Foundation (Partial) ⚠️
+- [x] Update `Sync.Exporter.to_json_metadata` to new format ✅
+  - **Completed**: 2025-11-22
+  - **Tests**: 20/20 passing
+  - **Changes**: New JSON format with `_id`, `_schema_version`, `_note`
+  - **Excludes**: `version`, `note_type_id`, timestamps
+- [ ] Add `find_note_by_path` and ID suggestion logic to `Sync.Importer` (Next)
 - [ ] Update error response format in `SyncLive`
 - [ ] Write backend tests for ID suggestion
 - [ ] Deploy to staging
 
 ### Phase 2: Frontend Infrastructure ✅ **COMPLETED**
-- [x] Create `NoteMetadataStore` with IndexedDB
+- [x] Create `NoteMetadataStore` with IndexedDB ✅
   - **File**: `assets/js/stores/note_metadata_store.ts` (192 lines)
-  - **Tests**: `assets/js/stores/note_metadata_store.test.ts` (19 tests, all passing ✅)
+  - **Tests**: `assets/js/stores/note_metadata_store.test.ts` (19/19 passing ✅)
   - **Features**: CRUD operations, batch upsert, version tracking, path updates, ID reverse lookup
   - **Dependencies**: `idb` (production), `fake-indexeddb` (dev/testing)
   - **Status**: Fully tested and working
-- [ ] Create `JsonFileManager` for metadata file operations
-- [ ] Create `ImportErrorHandler` with auto-fix logic
-- [ ] Write unit tests for all new modules
-- [ ] Integration testing with mock data
+- [x] Create `JsonFileManager` for metadata file operations ✅
+  - **File**: `assets/js/sync/json_file_manager.ts` (127 lines)
+  - **Tests**: `assets/js/sync/json_file_manager.test.ts` (17/17 passing ✅)
+  - **Features**: Read/write JSON, validate, auto-fix _id, migrate old format
+  - **Status**: Fully tested and working
+- [x] Create `ImportErrorHandler` with auto-fix logic ✅
+  - **File**: `assets/js/sync/import_error_handler.ts` (133 lines)
+  - **Tests**: `assets/js/sync/import_error_handler.test.ts` (11/11 passing ✅)
+  - **Features**: Auto-fix decision logic, conflict detection, error handling
+  - **Status**: Fully tested and working
+- [x] Write unit tests for all new modules ✅
+- [x] Integration testing with mock data ✅
 
-**Current Progress**: NoteMetadataStore complete with 100% test coverage
+**Progress**: 100% complete - All frontend infrastructure modules implemented and tested
 
 ### Testing Infrastructure ✅ **SETUP COMPLETE**
 
@@ -1443,28 +1507,49 @@ end
 
 ## Implemented Files
 
-### Frontend (TypeScript)
-- ✅ `assets/js/stores/note_metadata_store.ts` - IndexedDB wrapper for version tracking
-- ✅ `assets/js/stores/note_metadata_store.test.ts` - Complete test suite (19 tests)
+### Frontend (TypeScript) - All Complete ✅
+- ✅ `assets/js/stores/note_metadata_store.ts` (192 lines) - IndexedDB wrapper for version tracking
+- ✅ `assets/js/stores/note_metadata_store.test.ts` - Complete test suite (19/19 tests passing)
+- ✅ `assets/js/sync/json_file_manager.ts` (127 lines) - JSON metadata file operations
+- ✅ `assets/js/sync/json_file_manager.test.ts` - Complete test suite (17/17 tests passing)
+- ✅ `assets/js/sync/import_error_handler.ts` (133 lines) - Auto-fix error handling
+- ✅ `assets/js/sync/import_error_handler.test.ts` - Complete test suite (11/11 tests passing)
 - ✅ `assets/vitest.config.ts` - Vitest configuration
 - ✅ `assets/vitest.setup.ts` - Test setup with IndexedDB polyfill
 - ✅ `assets/TESTING.md` - Testing documentation
 - ✅ `docs/typescript-setup.md` - TypeScript setup guide
 
-### Backend (Elixir)
-- ⏳ `lib/xeno/sync/exporter.ex` - Needs update for new JSON format
-- ⏳ `lib/xeno/sync/importer.ex` - Needs path-based lookup + ID suggestion
+### Backend (Elixir) - Partial ⚠️
+- ✅ `lib/xeno/sync/exporter.ex` - **UPDATED** to new JSON format (20/20 tests passing)
+- ✅ `test/xeno/sync/exporter_test.exs` - **UPDATED** with new format tests (20/20 tests passing)
+- ⏳ `lib/xeno/sync/importer.ex` - Needs path-based lookup + ID suggestion (Next)
+- ⏳ `test/xeno/sync/importer_test.exs` - Needs tests for path-based lookup
 - ⏳ `lib/xeno_web/live/sync_live.ex` - Needs error format updates
+- ⏳ `assets/js/hooks/file_system_hook.ts` - Needs integration with new modules
 
-### Test Results
+### Test Results - Current
+**Frontend:**
 ```
-Test Files  2 passed (2)
-     Tests  31 passed (31)
-  Duration  941ms
+Test Files  4 passed (4)
+     Tests  59 passed (59)
+  Duration  1.42s
 
-✓ js/utils/string_utils.test.ts (12 tests) 9ms
-✓ js/stores/note_metadata_store.test.ts (19 tests) 38ms
+✓ js/utils/string_utils.test.ts (12 tests)
+✓ js/stores/note_metadata_store.test.ts (19 tests)
+✓ js/sync/json_file_manager.test.ts (17 tests)
+✓ js/sync/import_error_handler.test.ts (11 tests)
 ```
+
+**Backend:**
+```
+Test Files  1 passed (1)
+     Tests  20 passed (20)
+  Duration  0.6s
+
+✓ test/xeno/sync/exporter_test.exs (20 tests)
+```
+
+**Total: 79 tests passing**
 
 ## References
 

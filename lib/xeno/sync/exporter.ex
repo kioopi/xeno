@@ -45,42 +45,42 @@ defmodule Xeno.Sync.Exporter do
   end
 
   @doc """
-  Generates JSON metadata from note.
+  Generates JSON metadata from note (NEW FORMAT).
 
-  Returns a map containing:
-  - id: Note UUID
-  - name: Human-readable name
-  - note_type_id: UUID of the note type
-  - tags: Array of tags
-  - data: Custom JSON data
-  - version: Optimistic lock version
-  - inserted_at: Creation timestamp
-  - updated_at: Last modification timestamp
+  Returns a map containing user-editable fields and system metadata:
+  - _schema_version: Version of the JSON schema (currently "1.0")
+  - _id: Note UUID (prefixed with _ to indicate system field)
+  - _note: Message about system fields
+  - name: Human-readable name (user-editable)
+  - tags: Array of tags (user-editable)
+  - data: Custom JSON data (user-editable)
+
+  System fields excluded from JSON (stored in IndexedDB instead):
+  - version (optimistic locking)
+  - note_type_id (internal system concern)
+  - inserted_at, updated_at (not user-editable)
 
   ## Examples
 
       iex> to_json_metadata(note)
       %{
-        "id" => "...",
+        "_schema_version" => "1.0",
+        "_id" => "...",
+        "_note" => "Fields prefixed with _ are system-generated...",
         "name" => "My Note",
-        "note_type_id" => "...",
         "tags" => ["tag1"],
-        "data" => %{},
-        "version" => 1,
-        "inserted_at" => "2024-01-01T00:00:00Z",
-        "updated_at" => "2024-01-01T00:00:00Z"
+        "data" => %{}
       }
   """
   def to_json_metadata(note) do
     %{
-      "id" => note.id,
+      "_schema_version" => "1.0",
+      "_id" => note.id,
+      "_note" =>
+        "Fields prefixed with _ are system-generated. Do not edit unless you know what you're doing.",
       "name" => note.name,
-      "note_type_id" => note.note_type_id,
       "tags" => note.tags || [],
-      "data" => note.data || %{},
-      "version" => note.version,
-      "inserted_at" => DateTime.to_iso8601(note.inserted_at),
-      "updated_at" => DateTime.to_iso8601(note.updated_at)
+      "data" => note.data || %{}
     }
   end
 end
