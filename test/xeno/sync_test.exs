@@ -61,7 +61,7 @@ defmodule Xeno.SyncTest do
       assert markdown =~ "Test content"
 
       metadata = Jason.decode!(json_string)
-      assert metadata["id"] == note.id
+      assert metadata["_id"] == note.id
       assert metadata["name"] == "Test Note"
     end
 
@@ -76,14 +76,15 @@ defmodule Xeno.SyncTest do
 
       metadata = Jason.decode!(json_string)
 
-      assert metadata["id"]
+      assert metadata["_id"]
+      assert metadata["_schema_version"] == "1.0"
       assert metadata["name"]
-      assert metadata["note_type_id"]
       assert metadata["tags"]
       assert metadata["data"]
-      assert metadata["version"]
-      assert metadata["inserted_at"]
-      assert metadata["updated_at"]
+      refute metadata["version"]
+      refute metadata["note_type_id"]
+      refute metadata["inserted_at"]
+      refute metadata["updated_at"]
     end
   end
 

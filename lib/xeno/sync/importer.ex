@@ -86,16 +86,106 @@ defmodule Xeno.Sync.Importer do
   end
 
   @doc """
+  Parses a note path into directory path and filename components.
+
+  Paths are in the format: "directory/path/filename"
+  - Single directory: "docs/note" -> {"docs", "note"}
+  - Nested notes: "projects/work/note" -> {"projects/work", "note"}
+
+  ## Examples
+
+      iex> parse_note_path("projects/work/meeting-notes")
+      {:ok, "projects/work", "meeting-notes"}
+
+      iex> parse_note_path("docs/readme")
+      {:ok, "docs", "readme"}
+
+      iex> parse_note_path("")
+      {:error, :invalid_path}
+  """
+  def parse_note_path(path) when is_binary(path) and path != "" do
+    path = String.trim(path)
+
+    if String.ends_with?(path, "/") do
+      {:error, :invalid_path}
+    else
+      parts = String.split(path, "/")
+
+      case parts do
+        [] ->
+          {:error, :invalid_path}
+
+        [_single_part] ->
+          {:error, :invalid_path}
+
+        parts ->
+          filename = List.last(parts)
+          directory_path = parts |> Enum.drop(-1) |> Enum.join("/")
+          {:ok, directory_path, filename}
+      end
+    end
+  end
+
+  def parse_note_path(_), do: {:error, :invalid_path}
+
+  @doc """
+  Finds a note by its file system path.
+
+  Looks up the note by matching both the directory path and filename.
+
+  ## Examples
+
+      iex> find_note_by_path("projects/work/meeting-notes")
+      {:ok, %Xeno.Content.Note{}}
+
+      iex> find_note_by_path("nonexistent/path")
+      {:error, :not_found}
+  """
+  def find_note_by_path(path) do
+    with {:ok, directory_path, filename} <- parse_note_path(path),
+         {:ok, note} <- query_note_by_path(directory_path, filename) do
+      {:ok, note}
+    else
+      {:error, :invalid_path} -> {:error, :invalid_path}
+      {:error, :not_found} -> {:error, :not_found}
+    end
+  end
+
+  defp query_note_by_path(directory_path, filename) do
+    import Ash.Query
+
+    query =
+      Xeno.Content.Note
+      |> filter(filename == ^filename)
+      |> load(:directory)
+
+    case Ash.read(query) do
+      {:ok, notes} ->
+        notes
+        |> Enum.find(fn note -> note.directory.path == directory_path end)
+        |> case do
+          nil -> {:error, :not_found}
+          note -> {:ok, note}
+        end
+
+      {:error, _error} ->
+        {:error, :not_found}
+    end
+  end
+
+  @doc """
   Processes a file change from the file system and updates the database.
 
   Accepts a map with the following keys:
   - `note_id`: UUID of the note to update
+  - `path`: File system path (optional, used for ID suggestion)
   - `markdown_content`: Updated text content from the .md file
   - `metadata`: Map containing id, version, and optional fields (name, tags, data)
 
   Returns:
   - `{:ok, updated_note}` on success
   - `{:error, reason}` on validation failure or version conflict
+  - `{:error, %{type: :id_not_found, ...}}` when ID is wrong but path-based suggestion available
 
   ## Examples
 
@@ -113,7 +203,7 @@ defmodule Xeno.Sync.Importer do
     with {:ok, metadata} <- extract_metadata(attrs),
          :ok <- validate_metadata(metadata),
          {:ok, text} <- parse_markdown(attrs["markdown_content"]),
-         {:ok, note} <- fetch_note(metadata["id"]),
+         {:ok, note} <- fetch_note_with_suggestion(metadata["id"], attrs["path"]),
          :ok <- verify_version(note, metadata["version"]),
          {:ok, update_attrs} <- build_update_attrs(metadata, text) do
       Xeno.Content.Note.update(note, update_attrs)
@@ -123,11 +213,44 @@ defmodule Xeno.Sync.Importer do
   defp extract_metadata(%{"metadata" => metadata}) when is_map(metadata), do: {:ok, metadata}
   defp extract_metadata(_), do: {:error, "Missing metadata"}
 
-  defp fetch_note(note_id) when is_binary(note_id) do
+  defp fetch_note_with_suggestion(note_id, path) when is_binary(note_id) do
     case Xeno.Content.Note.get(note_id) do
-      {:ok, note} -> {:ok, note}
-      {:error, _error} -> {:error, %Ash.Error.Invalid{class: :invalid}}
+      {:ok, note} ->
+        {:ok, note}
+
+      {:error, _error} ->
+        suggest_id_by_path(note_id, path)
     end
+  end
+
+  defp suggest_id_by_path(provided_id, path) when is_binary(path) do
+    case find_note_by_path(path) do
+      {:ok, found_note} ->
+        {:error,
+         %{
+           type: :id_not_found,
+           provided_id: provided_id,
+           path: path,
+           suggested_id: found_note.id,
+           suggested_name: found_note.name,
+           message:
+             "Note with ID '#{provided_id}' not found. Found note '#{found_note.id}' (#{found_note.name}) at path '#{path}'."
+         }}
+
+      {:error, _} ->
+        {:error,
+         %{
+           type: :id_not_found,
+           provided_id: provided_id,
+           path: path,
+           suggested_id: nil,
+           message: "Note with ID '#{provided_id}' not found. No existing note at path '#{path}'."
+         }}
+    end
+  end
+
+  defp suggest_id_by_path(_provided_id, _path) do
+    {:error, %Ash.Error.Invalid{class: :invalid}}
   end
 
   defp verify_version(note, expected_version) when is_integer(expected_version) do
