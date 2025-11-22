@@ -29,6 +29,7 @@ defmodule Xeno.Content.Note do
     define :in_directory, action: :read, args: [:directory_id]
     define :create, action: :create
     define :update, action: :update
+    define :import_from_filesystem, action: :import_from_filesystem
     define :destroy, action: :destroy
   end
 
@@ -72,6 +73,25 @@ defmodule Xeno.Content.Note do
       accept [:name, :text, :data, :tags]
       require_atomic? false
 
+      change Changes.NormalizeTags, where: changing(:tags)
+    end
+
+    update :import_from_filesystem do
+      description "Import note changes from the file system"
+
+      argument :markdown_content, :string do
+        allow_nil? false
+        description "Raw markdown content from .md file"
+      end
+
+      argument :path, :string do
+        description "File path for error messages and ID suggestion if lookup fails"
+      end
+
+      accept [:name, :text, :data, :tags]
+      require_atomic? false
+
+      change Changes.ParseMarkdown
       change Changes.NormalizeTags, where: changing(:tags)
     end
   end

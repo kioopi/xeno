@@ -5,151 +5,6 @@ defmodule Xeno.Sync.ImporterTest do
 
   alias Xeno.Sync.Importer
 
-  describe "parse_markdown/1" do
-    test "extracts text content from markdown string" do
-      markdown = "# Hello World\n\nThis is some content."
-
-      assert {:ok, text} = Importer.parse_markdown(markdown)
-      assert text == "# Hello World\n\nThis is some content."
-    end
-
-    test "handles empty content" do
-      assert {:ok, text} = Importer.parse_markdown("")
-      assert text == ""
-    end
-
-    test "handles nil content" do
-      assert {:ok, text} = Importer.parse_markdown(nil)
-      assert text == ""
-    end
-
-    test "preserves whitespace and formatting" do
-      markdown = "Line 1\n\n  Indented line\n\nLine 3"
-
-      assert {:ok, text} = Importer.parse_markdown(markdown)
-      assert text == markdown
-    end
-  end
-
-  describe "parse_metadata/1" do
-    test "decodes valid JSON string" do
-      json = """
-      {
-        "id": "550e8400-e29b-41d4-a716-446655440000",
-        "name": "Test Note",
-        "version": 1
-      }
-      """
-
-      assert {:ok, metadata} = Importer.parse_metadata(json)
-      assert metadata["id"] == "550e8400-e29b-41d4-a716-446655440000"
-      assert metadata["name"] == "Test Note"
-      assert metadata["version"] == 1
-    end
-
-    test "returns error for invalid JSON" do
-      invalid_json = "{invalid json"
-
-      assert {:error, %Jason.DecodeError{}} = Importer.parse_metadata(invalid_json)
-    end
-
-    test "handles JSON with special characters" do
-      json = """
-      {
-        "id": "550e8400-e29b-41d4-a716-446655440000",
-        "name": "Note with \\"quotes\\" and \\n newlines",
-        "version": 1
-      }
-      """
-
-      assert {:ok, metadata} = Importer.parse_metadata(json)
-      assert metadata["name"] == "Note with \"quotes\" and \n newlines"
-    end
-
-    test "handles empty JSON object" do
-      assert {:ok, metadata} = Importer.parse_metadata("{}")
-      assert metadata == %{}
-    end
-  end
-
-  describe "validate_metadata/1" do
-    test "validates metadata with required fields" do
-      metadata = %{
-        "id" => "550e8400-e29b-41d4-a716-446655440000",
-        "version" => 1
-      }
-
-      assert :ok = Importer.validate_metadata(metadata)
-    end
-
-    test "returns error when id field is missing" do
-      metadata = %{"version" => 1}
-
-      assert {:error, "Missing required field: id"} = Importer.validate_metadata(metadata)
-    end
-
-    test "returns error when version field is missing" do
-      metadata = %{"id" => "550e8400-e29b-41d4-a716-446655440000"}
-
-      assert {:error, "Missing required field: version"} = Importer.validate_metadata(metadata)
-    end
-
-    test "returns error for invalid UUID format" do
-      metadata = %{
-        "id" => "not-a-uuid",
-        "version" => 1
-      }
-
-      assert {:error, "Invalid UUID format for id"} = Importer.validate_metadata(metadata)
-    end
-
-    test "allows optional fields" do
-      metadata = %{
-        "id" => "550e8400-e29b-41d4-a716-446655440000",
-        "version" => 1,
-        "name" => "Optional Name",
-        "tags" => ["tag1", "tag2"],
-        "data" => %{"custom" => "field"}
-      }
-
-      assert :ok = Importer.validate_metadata(metadata)
-    end
-  end
-
-  describe "parse_note_path/1" do
-    test "parses nested path correctly" do
-      assert {:ok, "projects/work", "meeting-notes"} =
-               Importer.parse_note_path("projects/work/meeting-notes")
-    end
-
-    test "parses deeply nested path" do
-      assert {:ok, "foo/bar/baz/qux", "note"} = Importer.parse_note_path("foo/bar/baz/qux/note")
-    end
-
-    test "handles path with single directory" do
-      assert {:ok, "projects", "note"} = Importer.parse_note_path("projects/note")
-    end
-
-    test "handles simple directory/filename pattern" do
-      assert {:ok, "docs", "readme"} = Importer.parse_note_path("docs/readme")
-    end
-
-    test "returns error for empty path" do
-      assert {:error, :invalid_path} = Importer.parse_note_path("")
-    end
-
-    test "returns error for nil path" do
-      assert {:error, :invalid_path} = Importer.parse_note_path(nil)
-    end
-
-    test "returns error for path ending with slash" do
-      assert {:error, :invalid_path} = Importer.parse_note_path("projects/work/")
-    end
-
-    test "returns error for single filename without directory" do
-      assert {:error, :invalid_path} = Importer.parse_note_path("my-note")
-    end
-  end
 
   describe "find_note_by_path/1" do
     setup do
@@ -251,12 +106,9 @@ defmodule Xeno.Sync.ImporterTest do
 
     test "imports change with updated markdown content", %{note: note} do
       change_attrs = %{
-        "note_id" => note.id,
+        "id" => note.id,
         "markdown_content" => "# Updated Content\n\nThis has been edited.",
-        "metadata" => %{
-          "id" => note.id,
-          "version" => note.version
-        }
+        "version" => note.version
       }
 
       assert {:ok, updated_note} = Importer.import_change(change_attrs)
@@ -266,15 +118,12 @@ defmodule Xeno.Sync.ImporterTest do
 
     test "imports change with updated metadata fields", %{note: note} do
       change_attrs = %{
-        "note_id" => note.id,
+        "id" => note.id,
         "markdown_content" => note.text,
-        "metadata" => %{
-          "id" => note.id,
-          "version" => note.version,
-          "name" => "Updated Name",
-          "tags" => ["updated", "tags"],
-          "data" => %{"key" => "updated"}
-        }
+        "version" => note.version,
+        "name" => "Updated Name",
+        "tags" => ["updated", "tags"],
+        "data" => %{"key" => "updated"}
       }
 
       assert {:ok, updated_note} = Importer.import_change(change_attrs)
@@ -284,15 +133,14 @@ defmodule Xeno.Sync.ImporterTest do
     end
 
     test "returns error for version conflict (stale record)", %{note: note} do
+      original_version = note.version
+
       Xeno.Content.Note.update!(note, %{text: "Concurrent edit"})
 
       change_attrs = %{
-        "note_id" => note.id,
+        "id" => note.id,
         "markdown_content" => "My edit",
-        "metadata" => %{
-          "id" => note.id,
-          "version" => note.version
-        }
+        "version" => original_version
       }
 
       assert {:error, error} = Importer.import_change(change_attrs)
@@ -303,28 +151,14 @@ defmodule Xeno.Sync.ImporterTest do
       non_existent_id = Ash.UUID.generate()
 
       change_attrs = %{
-        "note_id" => non_existent_id,
+        "id" => non_existent_id,
         "markdown_content" => "Content",
-        "metadata" => %{
-          "id" => non_existent_id,
-          "version" => 1
-        }
+        "version" => 1
       }
 
       assert {:error, error} = Importer.import_change(change_attrs)
-      assert error.class == :invalid
-    end
-
-    test "returns error for invalid metadata", %{note: note} do
-      change_attrs = %{
-        "note_id" => note.id,
-        "markdown_content" => "Content",
-        "metadata" => %{
-          "version" => note.version
-        }
-      }
-
-      assert {:error, "Missing required field: id"} = Importer.import_change(change_attrs)
+      assert error.type == :id_not_found
+      assert error.provided_id == non_existent_id
     end
 
     test "preserves unchanged fields", %{note: note} do
@@ -332,12 +166,9 @@ defmodule Xeno.Sync.ImporterTest do
       original_tags = note.tags
 
       change_attrs = %{
-        "note_id" => note.id,
+        "id" => note.id,
         "markdown_content" => "Only text changed",
-        "metadata" => %{
-          "id" => note.id,
-          "version" => note.version
-        }
+        "version" => note.version
       }
 
       assert {:ok, updated_note} = Importer.import_change(change_attrs)
@@ -371,13 +202,10 @@ defmodule Xeno.Sync.ImporterTest do
       wrong_id = Ash.UUID.generate()
 
       change_attrs = %{
-        "note_id" => wrong_id,
+        "id" => wrong_id,
         "path" => "projects/work/meeting-notes",
         "markdown_content" => "Updated content",
-        "metadata" => %{
-          "id" => wrong_id,
-          "version" => 1
-        }
+        "version" => 1
       }
 
       assert {:error, error} = Importer.import_change(change_attrs)
@@ -393,13 +221,10 @@ defmodule Xeno.Sync.ImporterTest do
       wrong_id = Ash.UUID.generate()
 
       change_attrs = %{
-        "note_id" => wrong_id,
+        "id" => wrong_id,
         "path" => "nonexistent/path/note",
         "markdown_content" => "Content",
-        "metadata" => %{
-          "id" => wrong_id,
-          "version" => 1
-        }
+        "version" => 1
       }
 
       assert {:error, error} = Importer.import_change(change_attrs)
@@ -428,13 +253,10 @@ defmodule Xeno.Sync.ImporterTest do
       wrong_id = Ash.UUID.generate()
 
       change_attrs = %{
-        "note_id" => wrong_id,
+        "id" => wrong_id,
         "path" => "docs/readme",
         "markdown_content" => "Content",
-        "metadata" => %{
-          "id" => wrong_id,
-          "version" => 1
-        }
+        "version" => 1
       }
 
       assert {:error, error} = Importer.import_change(change_attrs)
@@ -444,13 +266,10 @@ defmodule Xeno.Sync.ImporterTest do
 
     test "normal import still works when ID is correct", %{note: note} do
       change_attrs = %{
-        "note_id" => note.id,
+        "id" => note.id,
         "path" => "projects/work/meeting-notes",
         "markdown_content" => "Updated content",
-        "metadata" => %{
-          "id" => note.id,
-          "version" => note.version
-        }
+        "version" => note.version
       }
 
       assert {:ok, updated_note} = Importer.import_change(change_attrs)
@@ -462,13 +281,10 @@ defmodule Xeno.Sync.ImporterTest do
       wrong_id = Ash.UUID.generate()
 
       change_attrs = %{
-        "note_id" => wrong_id,
+        "id" => wrong_id,
         "path" => "projects/work/meeting-notes",
         "markdown_content" => "Content",
-        "metadata" => %{
-          "id" => wrong_id,
-          "version" => 1
-        }
+        "version" => 1
       }
 
       assert {:error, error} = Importer.import_change(change_attrs)

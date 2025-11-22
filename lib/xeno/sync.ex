@@ -58,9 +58,9 @@ defmodule Xeno.Sync do
   ## Examples
 
       iex> import_change(%{
-      ...>   "note_id" => "550e8400-e29b-41d4-a716-446655440000",
+      ...>   "id" => "550e8400-e29b-41d4-a716-446655440000",
       ...>   "markdown_content" => "Updated content",
-      ...>   "metadata" => %{"id" => "...", "version" => 1}
+      ...>   "version" => 1
       ...> })
       {:ok, %Note{}}
   """
@@ -82,8 +82,8 @@ defmodule Xeno.Sync do
   ## Examples
 
       iex> import_changes([
-      ...>   %{"note_id" => "...", "markdown_content" => "...", "metadata" => %{...}},
-      ...>   %{"note_id" => "...", "markdown_content" => "...", "metadata" => %{...}}
+      ...>   %{"id" => "...", "markdown_content" => "...", "version" => 1},
+      ...>   %{"id" => "...", "markdown_content" => "...", "version" => 2}
       ...> ])
       {:ok, %{imported: 2, failed: 0, errors: []}}
   """

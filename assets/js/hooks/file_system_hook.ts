@@ -311,9 +311,13 @@ export const FileSystemHook: TFileSystemHook = {
 
         if (noteFiles && noteFiles.metadata && noteFiles.metadata.id) {
           changes.push({
-            note_id: noteFiles.metadata.id,
+            id: noteFiles.metadata.id,
+            version: noteFiles.metadata.version,
+            name: noteFiles.metadata.name,
+            tags: noteFiles.metadata.tags,
+            data: noteFiles.metadata.data,
             markdown_content: noteFiles.markdown,
-            metadata: noteFiles.metadata
+            path: filePath
           });
         }
       }

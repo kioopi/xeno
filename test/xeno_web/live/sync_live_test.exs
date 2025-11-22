@@ -319,13 +319,10 @@ defmodule XenoWeb.SyncLiveTest do
 
       changes = [
         %{
-          "note_id" => note.id,
+          "id" => note.id,
           "markdown_content" => "Updated content",
-          "metadata" => %{
-            "id" => note.id,
-            "version" => 1,
-            "name" => "Updated Note"
-          }
+          "version" => 1,
+          "name" => "Updated Note"
         }
       ]
 
@@ -361,20 +358,14 @@ defmodule XenoWeb.SyncLiveTest do
 
       changes = [
         %{
-          "note_id" => note.id,
+          "id" => note.id,
           "markdown_content" => "Valid update",
-          "metadata" => %{
-            "id" => note.id,
-            "version" => 1
-          }
+          "version" => 1
         },
         %{
-          "note_id" => "invalid-uuid",
+          "id" => "invalid-uuid",
           "markdown_content" => "Invalid",
-          "metadata" => %{
-            "id" => "invalid-uuid",
-            "version" => 1
-          }
+          "version" => 1
         }
       ]
 
@@ -399,6 +390,7 @@ defmodule XenoWeb.SyncLiveTest do
           )
         )
 
+      original_version = note.version
       {:ok, updated_note} = Xeno.Content.Note.update(note, %{text: "Concurrent update"})
 
       {:ok, view, _html} = live(conn, ~p"/sync")
@@ -407,12 +399,9 @@ defmodule XenoWeb.SyncLiveTest do
 
       changes = [
         %{
-          "note_id" => note.id,
+          "id" => note.id,
           "markdown_content" => "Conflicting update",
-          "metadata" => %{
-            "id" => note.id,
-            "version" => note.version
-          }
+          "version" => original_version
         }
       ]
 
