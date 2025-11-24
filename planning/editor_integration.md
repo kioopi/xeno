@@ -63,7 +63,7 @@ Dies ist ein kritischer und potenziell herausfordernder Teil, da Sie Änderungen
 
 ---
 
-### II. Backend-Integration (Elixir/Phoenix/Ash)
+### gration (Elixir/Phoenix/Ash)
 
 Die Integration in Ihren Elixir/Ash/Phoenix/LiveView-Stack beinhaltet die effiziente Verarbeitung der vom Browser gesendeten Änderungen und deren Speicherung in der Datenbank.
 
@@ -379,7 +379,178 @@ Make a plan in a TDD style, lets keep it modular and maintainable.
 
 ---
 
+## Better Metadata handling
+
+So i've been thinking about the way we write the note metadata
+(as returned by Sync.Exporter.to_json_metadata) like id and version into the filename.json file along with the note data and tags.
+
+First point: The data field of a Note is not really metadata.
+It can contain all kinds of user content.
+
+Second point: The filename.json now contains data that the user should not
+be able to edit like id, version, and timestamps.
+
+We should find a way to have access to the note attributes we need for
+the import, without exposing them to the user.
+
+Now I'm thinking to keep track of all exported Notes in indexDB. Every Note could have a record there with the id and version attributes. These could then be used to complete the data needed for the import.
+The version then gets updated when the import succeeds. This also fixes the current problem that after importing files once the version is stale and all subsequent imports fail because the version in the json file is lower than the one in the database.
+
+Maybe we can even change the format of the data that send to the server to be pretty much the same as the arguments for the update action of the Note. This would enable us to remove some data massaging in elixir and feel more familiar to the developers working with the code.
+
+Please think about this. Analyze the current implementation. Does this sound like a good idea? What are the pros and cons?
+
+--
+
+The data attribute of a Note is typically user content.
+It might end up being mostly edited through interfaces in the app
+offered by NoteTypes but power users might want to edit the raw data
+in their editor or via scripts.
+So the filename.json should stay and contain user editable data.
+
+The use-case of having a work and home computer using the same
+notes is real.
+The checked out files should be as close to regular files as possible.
+The "magic" syncing to Xeno should interfere as little as possible with
+whatever the user wants to do with the files.
+So when a user just drag-and-drops the files somewhere and loses
+the version attributes conflict resolution (next paragraph) could
+save the day.
+
+The proper conflict resolution will come in a later iteration.
+For now failing is alright. Later there will be an overwrite or re-fetch option.
+Later there might be some kind of notification when editing a stale note.
+Maybe even smarter resolution strategies via CRDT.
+
+We don't need any data migration for now. There are no real users yet.
+
+So here is what i'm thinking:
+It would be good to remove the version from filename.json.
+This is because the version needs to be updated after every change to the Note.
+If a user edits both .json and .md but only saves .md we would have to edit
+an unsaved .json file. This seem not ideal.
+So version has to go into IndexDB or some other storage. We're already using IndexDB so that is probably fine.
+If we keep the id in the .json referencing the version will be simple.
+So we still have the problem that a user might accidentally edit the
+id.
+Here hare some ideas:
+_id is a good start to mark the field as read-only.
+We could duplicate the id in .md in the frontmatter. This way we can check
+if both id are the same. Actually three .json, .md, and indexdb. And warn the
+if there is a discrepancy.
+Another idea would be to remove the id from .json and add another file
+filename.id or .filename.id that only contains the id. This might keep it
+relatively save from accidental edits but the file would have to be carried
+along and be considered.
+
+So what do you think? Can you summarize the state of our discussion here?
+Please analyze the pros and cons of these ideas and feel free to add your
+own. Advise on an architecture that will give the user freedom to use
+the system as they like while keeping it stable, reliable and maintainable.
+
+---
+
+Read the document @planning/metadata_architecture.md
+Compare it to the current state of the implementation.
+What are the next steps in the development?
+Make a plan in a TDD style, lets keep it modular and maintainable.
+
+Update @planning/metadata_architecture.md to reflect the current
+state of development
+
+---
+
+@planning/metadata_architecture.md
+
+Why is the path the primary key in NoteMetadataStore?
+Wouldn't we usually look up Notes by their id from the .json file?
+Only if there is an id mismatch between client and server we'd need
+to look up a Note in NoteMetadataStore by path, right?
+
+---
+
+Sync.TreeBuilder.note_file_path
+Sync.Importer.find_note_by_path
+seem to duplicate futest/xeno/sync_test.exsnctionality.
+This should probably move into the Note resource.
+There could be a calculation "file_path" on note
+that returns the filename with path without extension.
+This will make it easy to write a read action by_path.
+The knowledge how file paths work will be centralized
+in Note.
+Read the relevant files and analyze how we can move domain
+logic into resources to get more idiomatic Ash.
+Think about Calculations, Aggregates, and Actions.
+Analyse and advise.
+
+Lets revisit Xeno.Sync.Importer
+
+parse_metadata seems unused
+parse_file_pathlib/xeno_web/live/sync_live.ex seems unused
+
+many of the other responsibilities in this file seem to be good fits to move
+into Ash resources.
+
+parse_markdown could be a Change
+
+the validations of id and version should become Ash Validation
+
+i'm not sure that verify_version is really needed because Ash
+provides this functionality.
+
+So i'm thinking
+if we change the file_system_hook to call import_files not with
+{ note_id, markdown_content, metadata }
+but with an object that looks like this
+{ id, nane, text, version, data, tags }
+We can add a update action to the Note resource that does all the
+work that is being done in Importer.
+
+Please analyse these suggestion and look at the code to see if this
+will work. I think it will make the code mode idiomatic Ash and
+will let us take advantage of Ash features like validations
+and optimistic locking.
+
+---
+
+Some attempts have been made in the codebase include everything that
+to be done for the import of filesystem changes into
+the import_from_filesystem ash action on Note.
+This would conform to Ash philosophy see:
+<https://hexdocs.pm/ash/actions.html#idiomatic-actions>
+
+The idea seems to be to move the resolution of mismatching id and path
+into a validation that runs in the action and make path a required
+argument of the action.
+If this could become a regular update action it might even be possible
+to use bulk updates.
+
+Please look at the changes in the last commit, run the tests and
+get and overview of the codebase and the changes.
+
+Please analyse the ideas and problems here and advise on the next steps.
+
+----
+
+Interesting points.
+
+But Ash actions also have the concepts of before_transaction and
+before_action hooks that are explicitly for things like calling
+APIs or complex logic. I think Ash expects some amount of
+business logic in its actions. Doing it in a service layer
+would take some of the domain modeling out of Ash.
+
+Also there are Ash custom errors which could be used to
+return all the data needed to resolve the conflicts
+
+<https://hexdocs.pm/ash/error-handling.html>
+<https://hexdocs.pm/ash/Ash.Error.html#to_ash_error/3>
+
+---
+
 ### Notes on the implementation so far
+
+We will work on these step-by-step when the time is ready.
 
 Sync.TreeBuilder.note_file_path should become a calculation on Note.
 The different extensions .md .json need graceful handling.
@@ -391,17 +562,19 @@ Then again i guess Ash Rest API will probably bring its own json encoder.
 Documentation needed in SyncLive.
 Especially the push_event calls to communicate with the javascript client.
 
-SyncLive eventhandler export_all calls Note.get for every note, ,
+SyncLive eventhandler export_all calls Note.get for every note,
 this should be one database query.
 Also all that export_note then does is json encoding. If we can move
 that into a calculation with a postgres expression this can be
 one database call and no iteration.
 
-Can we write the hook and directory_handle_store.js in TypeScript? Yes. Done.
+Can we write the hook and directory_handle_store.js in TypeScript? Yes. [x]
 
 Check optimistic locking impl for FS import.
 
 Add TypeScript type check to precommit and compile?
+
+We probably need a dedicated typescript test suite. [x]
 
 Add playwright tests for syncing (if possible)
 
@@ -410,3 +583,14 @@ this needs a more helpful error message
 
 Wants: How to see which mix packages docs are fetched with mix hex.docs?
 Wants: Task to fetch all docs after update.
+
+Update directory_handle_store.ts to use idb?
+Add vitest tests for directory_handle_store.ts
+
+Change the format send to the server by the sync system to be closer
+to the note resource format.
+But still: Add a dedicated action to update notes from fs sync.
+
+Add a script to run elixir and js tests
+
+Update @AGENTS.md with information about TypeScript testing.

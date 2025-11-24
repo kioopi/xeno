@@ -126,7 +126,8 @@ defmodule XenoWeb.SyncLive do
           json: json_string,
           metadata: %{
             note_id: note.id,
-            name: note.name
+            name: note.name,
+            version: note.version
           }
         }
       end)
@@ -185,21 +186,92 @@ defmodule XenoWeb.SyncLive do
 
   @impl true
   def handle_event("import_files", %{"changes" => changes}, socket) when is_list(changes) do
-    {:ok, %{imported: imported, failed: failed, errors: errors}} = Sync.import_changes(changes)
+    results =
+      Enum.map(changes, fn change ->
+        case Sync.import_change(change) do
+          {:ok, note} ->
+            %{
+              "status" => "success",
+              "note_id" => note.id,
+              "new_version" => note.version
+            }
+
+          {:error, %Ash.Error.Invalid{errors: errors}} ->
+            format_import_error(errors)
+
+          {:error, error} ->
+            %{
+              "status" => "error",
+              "error" => %{
+                "type" => "unknown",
+                "message" => Exception.message(error)
+              }
+            }
+        end
+      end)
+
+    success_count = Enum.count(results, &(&1["status"] == "success"))
+    error_count = Enum.count(results, &(&1["status"] == "error"))
 
     socket =
-      if failed == 0 do
-        socket
-        |> assign(last_sync: DateTime.utc_now())
-        |> put_flash(:info, "Successfully imported #{imported} note(s)")
+      socket
+      |> assign(last_sync: DateTime.utc_now())
+      |> push_event("import_result", %{"results" => results})
+
+    socket =
+      if error_count == 0 do
+        put_flash(socket, :info, "Successfully imported #{success_count} note(s)")
       else
-        socket
-        |> assign(last_sync: DateTime.utc_now())
-        |> put_flash(:info, "Imported #{imported}, failed #{failed}")
+        put_flash(socket, :info, "Imported #{success_count}, failed #{error_count}")
       end
 
     {:noreply, socket}
-    {:noreply, assign(socket, sync_errors: errors)}
+  end
+
+  defp format_import_error([%Xeno.Content.Errors.NoteNotFound{} = error | _]) do
+    %{
+      "status" => "error",
+      "error" => %{
+        "type" => "id_not_found",
+        "provided_id" => error.provided_id,
+        "suggested_id" => error.suggested_id,
+        "path" => error.file_path,
+        "message" => Exception.message(error)
+      }
+    }
+  end
+
+  defp format_import_error([%Xeno.Content.Errors.PathMismatch{} = error | _]) do
+    %{
+      "status" => "error",
+      "error" => %{
+        "type" => "path_mismatch",
+        "note_id" => error.note_id,
+        "expected_path" => error.expected_path,
+        "actual_path" => error.actual_path,
+        "message" => Exception.message(error)
+      }
+    }
+  end
+
+  defp format_import_error([error | _]) do
+    %{
+      "status" => "error",
+      "error" => %{
+        "type" => "unknown",
+        "message" => Exception.message(error)
+      }
+    }
+  end
+
+  defp format_import_error([]) do
+    %{
+      "status" => "error",
+      "error" => %{
+        "type" => "unknown",
+        "message" => "Unknown error occurred"
+      }
+    }
   end
 
   # Component to display error messages

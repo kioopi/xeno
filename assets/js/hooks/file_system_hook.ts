@@ -18,11 +18,18 @@
  */
 
 import { DirectoryHandleStore } from '../directory_handle_store';
+import { noteMetadataStore } from '../stores/note_metadata_store';
+import { jsonFileManager } from '../sync/json_file_manager';
 
 interface FileToWrite {
   path: string;
   markdown: string;
   json: string;
+  metadata?: {
+    note_id: string;
+    name: string;
+    version?: number;
+  };
 }
 
 interface WriteFilesPayload {
@@ -52,7 +59,8 @@ interface TFileSystemHook {
   scanForChanges(): Promise<any[]>;
   writeNoteFiles(file: FileToWrite): Promise<void>;
   scanDirectory(dirHandle: FileSystemDirectoryHandle, currentPath: string, changes: any[]): Promise<void>;
-  readNoteFiles(path: string): Promise<{ markdown: string, metadata: any } | null>;
+  readNoteFiles(path: string): Promise<{ markdown: string, metadata: any, version?: number } | null>;
+  handleImportResult(payload: { results: any[] }): Promise<void>;
 }
 
 export const FileSystemHook: TFileSystemHook = {
@@ -67,8 +75,65 @@ export const FileSystemHook: TFileSystemHook = {
     this.handleEvent('write_files', this.writeFiles.bind(this));
     this.handleEvent('disconnect_directory', this.disconnectDirectory.bind(this));
     this.handleEvent('scan_files', this.scanFiles.bind(this));
+    this.handleEvent('import_result', this.handleImportResult.bind(this));
 
     this.loadPersistedHandle();
+  },
+
+  /**
+   * Handle import results from the server
+   * Updates IndexedDB with new versions and logs detailed information
+   */
+  async handleImportResult(payload: { results: any[] }) {
+    console.group('📥 Import Results');
+    console.log('Total results:', payload.results.length);
+
+    for (const result of payload.results) {
+      if (result.status === 'success') {
+        console.log('✅ Success:', {
+          note_id: result.note_id,
+          new_version: result.new_version
+        });
+
+        // Update IndexedDB with new version
+        // We need to find the metadata by ID since we don't have the path in the result
+        const metadata = await noteMetadataStore.getById(result.note_id);
+        if (metadata) {
+          await noteMetadataStore.upsert({
+            ...metadata,
+            version: result.new_version
+          });
+          console.log('  💾 Updated IndexedDB version:', result.new_version);
+        } else {
+          console.warn('  ⚠️ Note not in IndexedDB, skipping version update');
+        }
+      } else if (result.status === 'error') {
+        console.error('❌ Error:', {
+          type: result.error.type,
+          message: result.error.message,
+          details: result.error
+        });
+
+        // Log specific error types with helpful context
+        if (result.error.type === 'id_not_found') {
+          console.warn('💡 ID Not Found - Suggested fix:', {
+            provided_id: result.error.provided_id,
+            suggested_id: result.error.suggested_id,
+            path: result.error.path,
+            message: 'The ID in the JSON file doesn\'t match the server'
+          });
+        } else if (result.error.type === 'path_mismatch') {
+          console.warn('⚠️ Path Mismatch:', {
+            note_id: result.error.note_id,
+            expected: result.error.expected_path,
+            actual: result.error.actual_path,
+            message: 'The note exists but at a different location'
+          });
+        }
+      }
+    }
+
+    console.groupEnd();
   },
 
   /**
@@ -191,6 +256,7 @@ export const FileSystemHook: TFileSystemHook = {
 
   /**
    * Write markdown and JSON files for a single note
+   * Uses JsonFileManager for JSON writing and stores metadata in IndexedDB
    */
   async writeNoteFiles(file: FileToWrite) {
     const pathParts = file.path.split('/');
@@ -206,15 +272,27 @@ export const FileSystemHook: TFileSystemHook = {
 
     const baseFilename = filename.replace(/\.[^/.]+$/, '');
 
+    // Write markdown file
     const mdHandle = await currentDir.getFileHandle(`${baseFilename}.md`, { create: true });
     const mdWritable = await mdHandle.createWritable();
     await mdWritable.write(file.markdown);
     await mdWritable.close();
 
+    // Write JSON file using JsonFileManager
     const jsonHandle = await currentDir.getFileHandle(`${baseFilename}.json`, { create: true });
-    const jsonWritable = await jsonHandle.createWritable();
-    await jsonWritable.write(file.json);
-    await jsonWritable.close();
+    const jsonMetadata = JSON.parse(file.json);
+    await jsonFileManager.write(jsonHandle, jsonMetadata);
+
+    // Store metadata in IndexedDB (if version and ID are available)
+    if (file.metadata && file.metadata.note_id && file.metadata.version !== undefined) {
+      await noteMetadataStore.upsert({
+        id: file.metadata.note_id,
+        version: file.metadata.version,
+        path: file.path,
+        filename: baseFilename,
+        lastSynced: new Date()
+      });
+    }
   },
 
   async scanFiles() {
@@ -236,7 +314,21 @@ export const FileSystemHook: TFileSystemHook = {
         return;
       }
 
+      console.log('🔍 Scanning files for changes...');
       const changes = await this.scanForChanges();
+
+      console.group('📤 Sending changes to server');
+      console.log('Total changes:', changes.length);
+      changes.forEach((change, idx) => {
+        console.log(`Change ${idx + 1}:`, {
+          id: change.id,
+          path: change.path,
+          version: change.version,
+          hasVersion: change.version !== undefined,
+          name: change.name
+        });
+      });
+      console.groupEnd();
 
       this.pushEvent('import_files', {
         changes: changes
@@ -249,7 +341,11 @@ export const FileSystemHook: TFileSystemHook = {
     }
   },
 
-  async readNoteFiles(path: string): Promise<{ markdown: string, metadata: any } | null> {
+  /**
+   * Read note files (markdown + JSON metadata)
+   * Uses JsonFileManager for JSON reading and NoteMetadataStore for version lookup
+   */
+  async readNoteFiles(path: string): Promise<{ markdown: string, metadata: any, version?: number } | null> {
     try {
       const pathParts = path.split('/').filter(p => p);
       const filename = pathParts.pop()!;
@@ -262,16 +358,29 @@ export const FileSystemHook: TFileSystemHook = {
 
       const baseFilename = filename.replace(/\.[^/.]+$/, '');
 
+      // Read markdown file
       const mdHandle = await currentDir.getFileHandle(`${baseFilename}.md`);
       const mdFile = await mdHandle.getFile();
       const markdown = await mdFile.text();
 
+      // Read JSON file using JsonFileManager
       const jsonHandle = await currentDir.getFileHandle(`${baseFilename}.json`);
-      const jsonFile = await jsonHandle.getFile();
-      const jsonText = await jsonFile.text();
-      const metadata = JSON.parse(jsonText);
+      const jsonMetadata = await jsonFileManager.read(jsonHandle);
 
-      return { markdown, metadata };
+      // Try to get version from IndexedDB
+      const localMeta = await noteMetadataStore.getByPath(path);
+      const version = localMeta?.version;
+
+      return {
+        markdown,
+        metadata: {
+          id: jsonMetadata._id,  // Use _id from new format
+          name: jsonMetadata.name,
+          tags: jsonMetadata.tags,
+          data: jsonMetadata.data
+        },
+        version  // May be undefined if not in IndexedDB
+      };
     } catch (error) {
       console.error(`Error reading note files at ${path}:`, error);
       return null;
@@ -297,6 +406,10 @@ export const FileSystemHook: TFileSystemHook = {
     }
   },
 
+  /**
+   * Scan directory recursively for note files
+   * Builds changes array with note data and version from IndexedDB
+   */
   async scanDirectory(dirHandle: FileSystemDirectoryHandle, currentPath: string, changes: any[]): Promise<void> {
     for await (const entry of dirHandle.values()) {
       const entryPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
@@ -305,19 +418,23 @@ export const FileSystemHook: TFileSystemHook = {
         await this.scanDirectory(entry as FileSystemDirectoryHandle, entryPath, changes);
       } else if (entry.kind === 'file' && entry.name.endsWith('.md')) {
         const baseName = entry.name.replace(/\.md$/, '');
-        const filePath = currentPath ? `${currentPath}/${baseName}` : baseName;
+        const baseFilePath = currentPath ? `${currentPath}/${baseName}` : baseName;
 
-        const noteFiles = await this.readNoteFiles(filePath);
+        // For readNoteFiles, use path without .md extension
+        const noteFiles = await this.readNoteFiles(baseFilePath);
 
         if (noteFiles && noteFiles.metadata && noteFiles.metadata.id) {
+          // For the server, send path WITH .md extension to match database
+          const serverPath = `${baseFilePath}.md`;
+
           changes.push({
             id: noteFiles.metadata.id,
-            version: noteFiles.metadata.version,
+            version: noteFiles.version,  // From IndexedDB (may be undefined)
             name: noteFiles.metadata.name,
             tags: noteFiles.metadata.tags,
             data: noteFiles.metadata.data,
             markdown_content: noteFiles.markdown,
-            path: filePath
+            path: serverPath  // Include .md extension to match database
           });
         }
       }

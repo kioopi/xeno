@@ -463,4 +463,132 @@ defmodule XenoWeb.SyncLiveTest do
       refute has_element?(view, "#import-btn")
     end
   end
+
+  describe "import_files error formatting" do
+    setup do
+      note_type = generate(note_type(name: "Test Type"))
+      work_dir = generate(directory(path: "projects/work"))
+
+      note =
+        generate(
+          note(
+            name: "Meeting Notes",
+            filename: "meeting-notes",
+            text: "Original content",
+            note_type_id: note_type.id,
+            directory_id: work_dir.id
+          )
+        )
+
+      %{note: note, directory: work_dir}
+    end
+
+    test "formats NoteNotFound error with suggestion for frontend", %{conn: conn, note: note} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      wrong_id = Ash.UUID.generate()
+
+      changes = [
+        %{
+          "id" => wrong_id,
+          "path" => "projects/work/meeting-notes",
+          "markdown_content" => "Updated content",
+          "version" => 1
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      assert_push_event(view, "import_result", %{"results" => [error_result]})
+
+      assert error_result["status"] == "error"
+      assert error_result["error"]["type"] == "id_not_found"
+      assert error_result["error"]["provided_id"] == wrong_id
+      assert error_result["error"]["suggested_id"] == note.id
+      assert error_result["error"]["path"] == "projects/work/meeting-notes"
+      assert is_binary(error_result["error"]["message"])
+    end
+
+    test "formats PathMismatch error for frontend", %{conn: conn, note: note} do
+      note = Ash.load!(note, :file_path)
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      changes = [
+        %{
+          "id" => note.id,
+          "path" => "wrong/path/location",
+          "markdown_content" => "Content",
+          "version" => note.version
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      assert_push_event(view, "import_result", %{"results" => [error_result]})
+
+      assert error_result["status"] == "error"
+      assert error_result["error"]["type"] == "path_mismatch"
+      assert error_result["error"]["note_id"] == note.id
+      assert error_result["error"]["expected_path"] == note.file_path
+      assert error_result["error"]["actual_path"] == "wrong/path/location"
+      assert is_binary(error_result["error"]["message"])
+    end
+
+    test "returns success with new version on successful import", %{conn: conn, note: note} do
+      note = Ash.load!(note, :file_path)
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      changes = [
+        %{
+          "id" => note.id,
+          "path" => note.file_path,
+          "markdown_content" => "Updated content",
+          "version" => note.version
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      assert_push_event(view, "import_result", %{"results" => [success_result]})
+
+      assert success_result["status"] == "success"
+      assert success_result["note_id"] == note.id
+      assert success_result["new_version"] == note.version + 1
+    end
+
+    test "handles multiple changes with mixed success and errors", %{conn: conn, note: note} do
+      note = Ash.load!(note, :file_path)
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      wrong_id = Ash.UUID.generate()
+
+      changes = [
+        # This should succeed
+        %{
+          "id" => note.id,
+          "path" => note.file_path,
+          "markdown_content" => "Good update",
+          "version" => note.version
+        },
+        # This should fail with id_not_found
+        %{
+          "id" => wrong_id,
+          "path" => "nonexistent/path",
+          "markdown_content" => "Bad update",
+          "version" => 1
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      assert_push_event(view, "import_result", %{"results" => results})
+      assert length(results) == 2
+
+      [success_result, error_result] = results
+
+      assert success_result["status"] == "success"
+      assert error_result["status"] == "error"
+      assert error_result["error"]["type"] == "id_not_found"
+    end
+  end
 end
