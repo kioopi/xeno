@@ -170,13 +170,10 @@ defmodule Xeno.Content.NoteTest do
     end
 
     test "optimistic locking prevents concurrent updates", %{note: note} do
-      note_v1_a = note
-      note_v1_b = note
-
-      assert {:ok, updated_v2} = Note.update(note_v1_a, %{text: "Update A"})
+      assert {:ok, updated_v2} = Note.update(note, %{text: "Update A"})
       assert updated_v2.version == 2
 
-      assert {:error, error} = Note.update(note_v1_b, %{text: "Update B"})
+      assert {:error, error} = Note.update(note, %{text: "Update B"})
 
       assert Exception.message(error) =~ "stale"
     end
@@ -290,6 +287,55 @@ defmodule Xeno.Content.NoteTest do
 
       assert %DateTime{} = note.inserted_at
       assert %DateTime{} = note.updated_at
+    end
+  end
+
+  describe "import_from_filesystem" do
+    setup do
+      note_type = generate(note_type(name: "Test Type"))
+      dir = generate(directory(path: "foo/bar", name: "Bar"))
+
+      note =
+        Note.create!(%{
+          name: "Note",
+          filename: "note",
+          directory_id: dir.id,
+          note_type_id: note_type.id,
+          text: "the old text",
+          tags: ["one", "two"]
+        })
+
+      {:ok, dir: dir, note_type: note_type, note: note}
+    end
+
+    test "updates a note", %{ note: note } do
+      params = %{
+        id: note.id,
+        path: "foo/bar/note",
+        markdown_content: "the new text",
+        version: note.version
+      }
+
+      assert {:ok, updated} = Note.import_from_filesystem(params)
+      assert updated.id == note.id
+      assert updated.text == "the new text"
+      assert updated.name == "Note"
+      assert updated.tags == ["one", "two"]
+      assert updated.version == 2
+    end
+
+    test "optimistic locking prevents concurrent updates", %{note: note} do
+      assert updated = Note.update!(note, %{text: "Update A"})
+      assert updated.version == 2
+
+      assert {:error, error} = Note.import_from_filesystem(%{
+        id: note.id,
+        path: "foo/bar/note",
+        markdown_content: "the new text",
+        version: 1
+      })
+
+      assert Exception.message(error) =~ "stale"
     end
   end
 end

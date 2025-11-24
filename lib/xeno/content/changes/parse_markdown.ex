@@ -15,6 +15,7 @@ defmodule Xeno.Content.Changes.ParseMarkdown do
 
       markdown when is_binary(markdown) ->
         Ash.Changeset.force_change_attribute(changeset, :text, markdown)
+        |> Ash.Changeset.delete_argument(:markdown_content)
 
       _ ->
         Ash.Changeset.add_error(changeset,

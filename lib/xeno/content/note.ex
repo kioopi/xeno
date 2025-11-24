@@ -76,8 +76,8 @@ defmodule Xeno.Content.Note do
       change Changes.NormalizeTags, where: changing(:tags)
     end
 
-    update :import_from_filesystem do
-      description "Import note changes from the file system"
+    update :update_from_fs do
+      description "Internal update action for filesystem imports"
 
       argument :markdown_content, :string do
         allow_nil? false
@@ -85,7 +85,11 @@ defmodule Xeno.Content.Note do
       end
 
       argument :path, :string do
-        description "File path for error messages and ID suggestion if lookup fails"
+        description "File path for logging/debugging"
+      end
+
+      argument :version, :integer do
+        description "Expected version for optimistic locking"
       end
 
       accept [:name, :text, :data, :tags]
@@ -93,7 +97,79 @@ defmodule Xeno.Content.Note do
 
       change Changes.ParseMarkdown
       change Changes.NormalizeTags, where: changing(:tags)
+      change optimistic_lock(:version)
     end
+
+    action :import_from_filesystem, :struct do
+      description "Import note changes from file system with ID resolution"
+      constraints instance_of: __MODULE__
+
+      argument :id, :uuid do
+        allow_nil? false
+        description "ID of the note to update"
+      end
+
+      argument :path, :string do
+        description "File path for ID suggestion if lookup fails"
+      end
+
+      argument :markdown_content, :string do
+        allow_nil? false
+        description "Raw markdown content from .md file"
+      end
+
+      argument :name, :string, description: "Updated name"
+      argument :tags, {:array, :string}, description: "Updated tags"
+      argument :data, :map, description: "Updated data"
+      argument :version, :integer, description: "Version for optimistic locking"
+
+      run fn input, _context ->
+        case Xeno.Content.IdResolver.resolve(input.arguments.id, input.arguments.path) do
+          {:ok, note} ->
+            note_with_version =
+              if input.arguments.version do
+                %{note | version: input.arguments.version}
+              else
+                note
+              end
+
+            update_attrs = prepare_update_attrs(input.arguments)
+
+            case note_with_version
+                 |> Ash.Changeset.for_update(:update_from_fs, update_attrs)
+                 |> Ash.update() do
+              {:ok, updated_note} -> {:ok, updated_note}
+              {:error, error} -> {:error, error}
+            end
+
+          {:path_mismatch, note, expected_path} ->
+            note = Ash.load!(note, :file_path)
+
+            {:error,
+             Xeno.Content.Errors.PathMismatch.exception(
+               note_id: note.id,
+               expected_path: note.file_path,
+               actual_path: expected_path,
+               note_name: note.name
+             )}
+
+          {:error, error} ->
+            {:error, error}
+        end
+      end
+    end
+  end
+
+  defp prepare_update_attrs(arguments) do
+    %{
+      markdown_content: arguments.markdown_content,
+      name: Map.get(arguments, :name),
+      tags: Map.get(arguments, :tags),
+      data: Map.get(arguments, :data),
+      path: Map.get(arguments, :path)
+    }
+    |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+    |> Map.new()
   end
 
   pub_sub do
@@ -172,15 +248,15 @@ defmodule Xeno.Content.Note do
     end
   end
 
-  identities do
-    identity :unique_filename_in_directory, [:directory_id, :filename] do
-      description "Ensures filenames are unique within a directory"
-    end
-  end
-
   calculations do
     calculate :file_path, :string, Calculations.FilePath do
       description "Full file path without extension (directory path + filename)"
+    end
+  end
+
+  identities do
+    identity :unique_filename_in_directory, [:directory_id, :filename] do
+      description "Ensures filenames are unique within a directory"
     end
   end
 end

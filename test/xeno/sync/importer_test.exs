@@ -5,7 +5,6 @@ defmodule Xeno.Sync.ImporterTest do
 
   alias Xeno.Sync.Importer
 
-
   describe "find_note_by_path/1" do
     setup do
       note_type = generate(note_type(name: "Test Type"))
@@ -105,10 +104,13 @@ defmodule Xeno.Sync.ImporterTest do
     end
 
     test "imports change with updated markdown content", %{note: note} do
+      note = Ash.load!(note, :file_path)
+
       change_attrs = %{
         "id" => note.id,
         "markdown_content" => "# Updated Content\n\nThis has been edited.",
-        "version" => note.version
+        "version" => note.version,
+        "path" => note.file_path
       }
 
       assert {:ok, updated_note} = Importer.import_change(change_attrs)
@@ -117,13 +119,16 @@ defmodule Xeno.Sync.ImporterTest do
     end
 
     test "imports change with updated metadata fields", %{note: note} do
+      note = Ash.load!(note, :file_path)
+
       change_attrs = %{
         "id" => note.id,
         "markdown_content" => note.text,
         "version" => note.version,
         "name" => "Updated Name",
         "tags" => ["updated", "tags"],
-        "data" => %{"key" => "updated"}
+        "data" => %{"key" => "updated"},
+        "path" => note.file_path
       }
 
       assert {:ok, updated_note} = Importer.import_change(change_attrs)
@@ -135,7 +140,7 @@ defmodule Xeno.Sync.ImporterTest do
     test "returns error for version conflict (stale record)", %{note: note} do
       original_version = note.version
 
-      Xeno.Content.Note.update!(note, %{text: "Concurrent edit"})
+      %{version: 2} = Xeno.Content.Note.update!(note, %{text: "Concurrent edit"})
 
       change_attrs = %{
         "id" => note.id,
@@ -156,25 +161,29 @@ defmodule Xeno.Sync.ImporterTest do
         "version" => 1
       }
 
-      assert {:error, error} = Importer.import_change(change_attrs)
-      assert error.type == :id_not_found
+      assert {:error, %Ash.Error.Invalid{errors: [error]}} = Importer.import_change(change_attrs)
+      assert %Xeno.Content.Errors.NoteNotFound{} = error
       assert error.provided_id == non_existent_id
+      assert error.suggested_id == nil
+      assert error.file_path == nil
     end
 
     test "preserves unchanged fields", %{note: note} do
+      note = Ash.load!(note, :file_path)
       original_data = note.data
       original_tags = note.tags
 
       change_attrs = %{
         "id" => note.id,
         "markdown_content" => "Only text changed",
-        "version" => note.version
+        "version" => note.version,
+        "path" => note.file_path
       }
 
       assert {:ok, updated_note} = Importer.import_change(change_attrs)
       assert updated_note.text == "Only text changed"
-      assert updated_note.data == original_data
       assert updated_note.tags == original_tags
+      assert updated_note.data == original_data
       assert updated_note.name == note.name
     end
   end
@@ -208,13 +217,14 @@ defmodule Xeno.Sync.ImporterTest do
         "version" => 1
       }
 
-      assert {:error, error} = Importer.import_change(change_attrs)
-      assert error.type == :id_not_found
+      assert {:error, %Ash.Error.Invalid{errors: [error]}} = Importer.import_change(change_attrs)
+      assert %Xeno.Content.Errors.NoteNotFound{} = error
       assert error.provided_id == wrong_id
       assert error.suggested_id == note.id
-      assert error.path == "projects/work/meeting-notes"
-      assert error.message =~ "not found"
-      assert error.message =~ note.id
+      assert error.file_path == "projects/work/meeting-notes"
+      message = Exception.message(error)
+      assert message =~ "not found"
+      assert message =~ note.id
     end
 
     test "returns no suggestion when path doesn't exist" do
@@ -227,13 +237,14 @@ defmodule Xeno.Sync.ImporterTest do
         "version" => 1
       }
 
-      assert {:error, error} = Importer.import_change(change_attrs)
-      assert error.type == :id_not_found
+      assert {:error, %Ash.Error.Invalid{errors: [error]}} = Importer.import_change(change_attrs)
+      assert %Xeno.Content.Errors.NoteNotFound{} = error
       assert error.provided_id == wrong_id
       assert error.suggested_id == nil
-      assert error.path == "nonexistent/path/note"
-      assert error.message =~ "not found"
-      assert error.message =~ "No existing note at path"
+      assert error.file_path == "nonexistent/path/note"
+      message = Exception.message(error)
+      assert message =~ "not found"
+      assert message =~ "No existing note at path"
     end
 
     test "handles simple directory/note pattern in suggestions" do
@@ -259,8 +270,8 @@ defmodule Xeno.Sync.ImporterTest do
         "version" => 1
       }
 
-      assert {:error, error} = Importer.import_change(change_attrs)
-      assert error.type == :id_not_found
+      assert {:error, %Ash.Error.Invalid{errors: [error]}} = Importer.import_change(change_attrs)
+      assert %Xeno.Content.Errors.NoteNotFound{} = error
       assert error.suggested_id == docs_note.id
     end
 
@@ -287,8 +298,59 @@ defmodule Xeno.Sync.ImporterTest do
         "version" => 1
       }
 
-      assert {:error, error} = Importer.import_change(change_attrs)
-      assert error.message =~ note.name
+      assert {:error, %Ash.Error.Invalid{errors: [error]}} = Importer.import_change(change_attrs)
+      assert %Xeno.Content.Errors.NoteNotFound{} = error
+      assert Exception.message(error) =~ note.name
+    end
+
+    test "returns error when ID exists but path doesn't match", %{note: note} do
+      note = Ash.load!(note, :file_path)
+
+      change_attrs = %{
+        "id" => note.id,
+        "path" => "wrong/path/location",
+        "markdown_content" => "Content",
+        "version" => note.version
+      }
+
+      assert {:error, %Ash.Error.Invalid{errors: [error]}} = Importer.import_change(change_attrs)
+      assert %Xeno.Content.Errors.PathMismatch{} = error
+      assert error.note_id == note.id
+      assert error.expected_path == note.file_path
+      assert error.actual_path == "wrong/path/location"
+      assert error.note_name == note.name
+      message = Exception.message(error)
+      assert message =~ "Path mismatch"
+      assert message =~ note.file_path
+      assert message =~ "wrong/path/location"
+    end
+
+    test "allows import when path is not provided (nil)", %{note: note} do
+      change_attrs = %{
+        "id" => note.id,
+        "markdown_content" => "Updated without path",
+        "version" => note.version
+      }
+
+      assert {:ok, updated_note} = Importer.import_change(change_attrs)
+      assert updated_note.text == "Updated without path"
+      assert updated_note.id == note.id
+    end
+
+    test "returns error for missing note without path" do
+      non_existent_id = Ash.UUID.generate()
+
+      change_attrs = %{
+        "id" => non_existent_id,
+        "markdown_content" => "Content",
+        "version" => 1
+      }
+
+      assert {:error, %Ash.Error.Invalid{errors: [error]}} = Importer.import_change(change_attrs)
+      assert %Xeno.Content.Errors.NoteNotFound{} = error
+      assert error.provided_id == non_existent_id
+      assert error.suggested_id == nil
+      assert error.file_path == nil
     end
   end
 end

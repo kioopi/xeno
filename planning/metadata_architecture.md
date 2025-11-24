@@ -50,14 +50,39 @@
   - File: `lib/xeno/sync/exporter.ex` (updated)
   - Tests: `test/xeno/sync/exporter_test.exs` (20/20 passing)
 
+#### Phase 5: Backend Importer Enhancement ✅
+- **IdResolver**: Path-based lookup and ID suggestion with 78 lines
+  - Resolves notes by ID with path verification
+  - Suggests correct ID when provided ID not found
+  - Detects path mismatches (ID exists but at different location)
+  - File: `lib/xeno/content/id_resolver.ex` (78 lines)
+- **NoteNotFound Error**: Custom Splode error for ID not found scenarios (26 lines)
+  - Includes suggestion data (suggested_id, file_path, note_name)
+  - Helpful error messages for different scenarios
+  - File: `lib/xeno/content/errors/note_not_found.ex` (26 lines)
+- **PathMismatch Error**: Custom Splode error for path mismatch scenarios (27 lines)
+  - Returns error when ID exists but path doesn't match
+  - Prevents silent data corruption from file moves
+  - File: `lib/xeno/content/errors/path_mismatch.ex` (27 lines)
+- **Generic Action**: Converted `import_from_filesystem` to generic action
+  - Performs ID resolution internally using IdResolver
+  - Handles path mismatches with strict error reporting
+  - Delegates to declarative `update_from_fs` action
+  - Supports optimistic locking via version argument
+  - File: `lib/xeno/content/note.ex` (updated)
+- **Tests**: Comprehensive test coverage (17 tests passing)
+  - Path-based lookup tests
+  - ID suggestion tests
+  - Path mismatch error tests
+  - Optimistic locking tests
+  - File: `test/xeno/sync/importer_test.exs` (17/17 tests passing)
+
 ### In Progress 🔄
-- Backend Importer enhancements (path-based lookup, ID suggestion)
+- (None currently)
 
 ### Pending ⏳
 - FileSystemHook integration with new modules
-- Backend Importer path-based lookup implementation
-- Backend Importer ID suggestion logic
-- LiveView error handling updates
+- LiveView error handling updates (format errors for frontend)
 - Auto-fix flow end-to-end integration
 - UI conflict resolution dialog
 

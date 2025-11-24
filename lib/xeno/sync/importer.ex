@@ -36,7 +36,8 @@ defmodule Xeno.Sync.Importer do
   @doc """
   Processes a file change from the file system and updates the database.
 
-  Now uses the Note.import_from_filesystem action which handles:
+  Uses the Note.import_from_filesystem generic action which handles:
+  - ID resolution with path-based fallback and suggestions
   - Parsing markdown content
   - Validating UUID format and version presence (via Ash)
   - Optimistic locking via Ash's built-in version checking
@@ -52,8 +53,7 @@ defmodule Xeno.Sync.Importer do
 
   Returns:
   - `{:ok, updated_note}` on success
-  - `{:error, reason}` on validation failure or version conflict
-  - `{:error, %{type: :id_not_found, ...}}` when ID is wrong but path-based suggestion available
+  - `{:error, %NoteNotFound{}}` with suggestion data when ID not found
 
   ## Examples
 
@@ -65,81 +65,16 @@ defmodule Xeno.Sync.Importer do
       {:ok, %Xeno.Content.Note{}}
   """
   def import_change(attrs) when is_map(attrs) do
-    note_id = attrs["id"]
-    path = attrs["path"]
-    expected_version = attrs["version"]
+    ash_attrs = %{
+      id: attrs["id"],
+      path: attrs["path"],
+      markdown_content: attrs["markdown_content"],
+      version: attrs["version"],
+      name: attrs["name"],
+      tags: attrs["tags"],
+      data: attrs["data"]
+    }
 
-    case Xeno.Content.Note.get(note_id) do
-      {:ok, note} ->
-        case verify_version(note, expected_version) do
-          :ok ->
-            update_attrs = Map.drop(attrs, ["id", "version"])
-            Xeno.Content.Note.import_from_filesystem(note, update_attrs)
-
-          {:error, _} = error ->
-            error
-        end
-
-      {:error, _error} ->
-        suggest_id_by_path(note_id, path)
-    end
-  end
-
-  defp verify_version(_note, nil), do: :ok
-
-  defp verify_version(note, expected_version) when is_integer(expected_version) do
-    if note.version == expected_version do
-      :ok
-    else
-      {:error,
-       %Ash.Error.Invalid{
-         class: :invalid,
-         errors: [
-           %{
-             field: :version,
-             message: "Version mismatch: expected #{expected_version}, got #{note.version}"
-           }
-         ]
-       }}
-    end
-  end
-
-  defp verify_version(_note, _expected_version), do: :ok
-
-  defp suggest_id_by_path(provided_id, path) when is_binary(path) do
-    case find_note_by_path(path) do
-      {:ok, found_note} ->
-        {:error,
-         %{
-           type: :id_not_found,
-           provided_id: provided_id,
-           path: path,
-           suggested_id: found_note.id,
-           suggested_name: found_note.name,
-           message:
-             "Note with ID '#{provided_id}' not found. Found note '#{found_note.id}' (#{found_note.name}) at path '#{path}'."
-         }}
-
-      {:error, _} ->
-        {:error,
-         %{
-           type: :id_not_found,
-           provided_id: provided_id,
-           path: path,
-           suggested_id: nil,
-           message: "Note with ID '#{provided_id}' not found. No existing note at path '#{path}'."
-         }}
-    end
-  end
-
-  defp suggest_id_by_path(provided_id, _path) do
-    {:error,
-     %{
-       type: :id_not_found,
-       provided_id: provided_id,
-       path: nil,
-       suggested_id: nil,
-       message: "Note with ID '#{provided_id}' not found."
-     }}
+    Xeno.Content.Note.import_from_filesystem(ash_attrs)
   end
 end
