@@ -290,60 +290,6 @@ defmodule XenoWeb.SyncLive do
     {:noreply, socket}
   end
 
-  defp format_import_error([%Xeno.Content.Errors.NoteNotFound{} = error | _], change) do
-    %{
-      "status" => "error",
-      "error" => %{
-        "type" => "id_not_found",
-        "provided_id" => error.provided_id,
-        "suggested_id" => error.suggested_id,
-        "path" => error.file_path,
-        "file_path" => error.file_path,
-        "note_name" => Map.get(change, "name"),
-        "message" => Exception.message(error)
-      }
-    }
-  end
-
-  defp format_import_error([%Xeno.Content.Errors.PathMismatch{} = error | _], change) do
-    %{
-      "status" => "error",
-      "error" => %{
-        "type" => "path_mismatch",
-        "note_id" => error.note_id,
-        "expected_path" => error.expected_path,
-        "actual_path" => error.actual_path,
-        "file_path" => Map.get(change, "path"),
-        "note_name" => Map.get(change, "name"),
-        "message" => Exception.message(error)
-      }
-    }
-  end
-
-  defp format_import_error([error | _], change) do
-    %{
-      "status" => "error",
-      "error" => %{
-        "type" => "validation",
-        "message" => Exception.message(error),
-        "file_path" => Map.get(change, "path"),
-        "note_name" => Map.get(change, "name")
-      }
-    }
-  end
-
-  defp format_import_error([], change) do
-    %{
-      "status" => "error",
-      "error" => %{
-        "type" => "unknown",
-        "message" => "Unknown error occurred",
-        "file_path" => Map.get(change, "path"),
-        "note_name" => Map.get(change, "name")
-      }
-    }
-  end
-
   @impl true
   def handle_event("id_conflict", params, socket) do
     %{
@@ -437,6 +383,62 @@ defmodule XenoWeb.SyncLive do
   @impl true
   def handle_event("clear_errors", _params, socket) do
     {:noreply, assign(socket, sync_errors: nil, error: nil)}
+  end
+
+  # Helper functions for formatting import errors
+
+  defp format_import_error([%Xeno.Content.Errors.NoteNotFound{} = error | _], change) do
+    %{
+      "status" => "error",
+      "error" => %{
+        "type" => "id_not_found",
+        "provided_id" => error.provided_id,
+        "suggested_id" => error.suggested_id,
+        "path" => error.file_path,
+        "file_path" => error.file_path,
+        "note_name" => Map.get(change, "name"),
+        "message" => Exception.message(error)
+      }
+    }
+  end
+
+  defp format_import_error([%Xeno.Content.Errors.PathMismatch{} = error | _], change) do
+    %{
+      "status" => "error",
+      "error" => %{
+        "type" => "path_mismatch",
+        "note_id" => error.note_id,
+        "expected_path" => error.expected_path,
+        "actual_path" => error.actual_path,
+        "file_path" => Map.get(change, "path"),
+        "note_name" => Map.get(change, "name"),
+        "message" => Exception.message(error)
+      }
+    }
+  end
+
+  defp format_import_error([error | _], change) do
+    %{
+      "status" => "error",
+      "error" => %{
+        "type" => "validation",
+        "message" => Exception.message(error),
+        "file_path" => Map.get(change, "path"),
+        "note_name" => Map.get(change, "name")
+      }
+    }
+  end
+
+  defp format_import_error([], change) do
+    %{
+      "status" => "error",
+      "error" => %{
+        "type" => "unknown",
+        "message" => "Unknown error occurred",
+        "file_path" => Map.get(change, "path"),
+        "note_name" => Map.get(change, "name")
+      }
+    }
   end
 
   # Component to display error messages

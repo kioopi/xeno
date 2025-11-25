@@ -35,7 +35,7 @@
               phx-click="export_all"
               disabled={@sync_status != :idle}
               class={[
-                "btn btn-primary",
+                "btn btn-primary transition-all duration-200",
                 @sync_status != :idle && "btn-disabled"
               ]}
             >
@@ -57,7 +57,7 @@
               phx-click="scan_files"
               disabled={@import_status != :idle}
               class={[
-                "btn btn-secondary",
+                "btn btn-secondary transition-all duration-200",
                 @import_status != :idle && "btn-disabled"
               ]}
             >
@@ -77,7 +77,7 @@
             <button
               id="disconnect-directory-btn"
               phx-click="disconnect_directory"
-              class="btn btn-outline"
+              class="btn btn-outline transition-all duration-200"
             >
               Disconnect Folder
             </button>
@@ -89,10 +89,10 @@
           </div>
 
           <%= if @last_operation do %>
-            <div class="mt-4 text-sm opacity-70 flex items-center gap-2">
+            <div class="mt-4 text-sm opacity-70 flex items-center gap-2 animate-fade-in">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                class="h-4 w-4 text-success"
+                class="h-4 w-4 text-success animate-scale-in"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -154,7 +154,7 @@
     <% end %>
 
     <%= if @sync_errors do %>
-      <div id="error-container" class="space-y-3 mb-6">
+      <div id="error-container" class="space-y-3 mb-6 animate-fade-in">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-lg font-semibold">
             Sync Errors ({length(@sync_errors)})
@@ -168,7 +168,7 @@
           </button>
         </div>
 
-        <div :for={{error, idx} <- Enum.with_index(@sync_errors)} class="alert shadow-lg">
+        <div :for={{error, idx} <- Enum.with_index(@sync_errors)} class="alert shadow-lg transition-all duration-200 hover:shadow-xl">
           <%!-- Icon based on error type --%>
           <%= cond do %>
             <% error["type"] == "id_not_found" -> %>
