@@ -1287,4 +1287,165 @@ defmodule XenoWeb.SyncLiveTest do
       refute html =~ "Note ID Conflict Detected"
     end
   end
+
+  describe "FileSystemObserver events" do
+    test "observer_supported event sets capability flag to true", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "observer_supported", %{"supported" => true})
+
+      assert %{observer_supported: true} = :sys.get_state(view.pid).socket.assigns
+    end
+
+    test "observer_supported event sets capability flag to false", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "observer_supported", %{"supported" => false})
+
+      assert %{observer_supported: false} = :sys.get_state(view.pid).socket.assigns
+    end
+
+    test "start_watching event enables watching and pushes to JS", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      # First connect directory and set observer support (required for watching)
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+      render_hook(view, "observer_supported", %{"supported" => true})
+
+      # Start watching
+      view
+      |> element("#start-watching-btn")
+      |> render_click()
+
+      # Should set watching_enabled to true
+      assert %{watching_enabled: true} = :sys.get_state(view.pid).socket.assigns
+
+      # Should push event to JS
+      assert_push_event(view, "start_file_observer", %{})
+    end
+
+    test "stop_watching event disables watching and pushes to JS", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      # Set up watching state
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+      render_hook(view, "observer_supported", %{"supported" => true})
+      render_hook(view, "watching_started", %{})
+
+      # Stop watching
+      view
+      |> element("#stop-watching-btn")
+      |> render_click()
+
+      # Should set watching_enabled to false
+      assert %{watching_enabled: false} = :sys.get_state(view.pid).socket.assigns
+
+      # Should push event to JS
+      assert_push_event(view, "stop_file_observer", %{})
+    end
+
+    test "watching_started event confirms observer active", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+      render_hook(view, "watching_started", %{})
+
+      # Should set watching_enabled
+      assert %{watching_enabled: true} = :sys.get_state(view.pid).socket.assigns
+
+      # Should show success message
+      html = render(view)
+      assert html =~ "Auto-sync active"
+    end
+
+    test "watching_stopped event confirms observer stopped", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      # Set up watching
+      render_hook(view, "directory_connected", %{})
+      render_hook(view, "watching_started", %{})
+
+      # Stop watching
+      render_hook(view, "watching_stopped", %{})
+
+      # Should clear watching state
+      assert %{watching_enabled: false} = :sys.get_state(view.pid).socket.assigns
+
+      # Should show info message
+      html = render(view)
+      assert html =~ "Auto-sync paused"
+    end
+  end
+
+  describe "FileSystemObserver UI" do
+    test "shows 'Auto-sync available' badge when observer supported", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      # Connect directory and set observer support
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+      render_hook(view, "observer_supported", %{"supported" => true})
+
+      html = render(view)
+      assert html =~ "Auto-sync available"
+    end
+
+    test "shows 'not supported' message when observer unavailable", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      # Connect directory and set observer not supported
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+      render_hook(view, "observer_supported", %{"supported" => false})
+
+      html = render(view)
+      assert html =~ "Auto-sync not supported"
+      assert html =~ "manual import"
+    end
+
+    test "shows 'Enable Auto-Sync' button when not watching", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      # Connect directory and set observer support
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+      render_hook(view, "observer_supported", %{"supported" => true})
+
+      # Should show enable button
+      assert has_element?(view, "#start-watching-btn", "Enable Auto-Sync")
+    end
+
+    test "shows 'Pause Auto-Sync' button when watching", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      # Connect directory, set observer support, start watching
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+      render_hook(view, "observer_supported", %{"supported" => true})
+      render_hook(view, "watching_started", %{})
+
+      # Should show pause button
+      assert has_element?(view, "#stop-watching-btn", "Pause Auto-Sync")
+    end
+
+    test "shows watching indicator when enabled", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      # Connect directory, set observer support, and start watching
+      render_hook(view, "directory_connected", %{})
+      render_hook(view, "observer_supported", %{"supported" => true})
+      render_hook(view, "watching_started", %{})
+
+      html = render(view)
+      assert html =~ "Watching for changes"
+    end
+
+    test "hides watch controls when observer not supported", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      # Connect directory but observer not supported
+      render_hook(view, "directory_connected", %{})
+      render_hook(view, "observer_supported", %{"supported" => false})
+
+      # Should not show watch buttons
+      refute has_element?(view, "#start-watching-btn")
+      refute has_element?(view, "#stop-watching-btn")
+    end
+  end
 end

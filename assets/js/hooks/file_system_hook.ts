@@ -21,6 +21,14 @@ import { DirectoryHandleStore } from '../directory_handle_store';
 import { noteMetadataStore } from '../stores/note_metadata_store';
 import { jsonFileManager } from '../sync/json_file_manager';
 import { importErrorHandler } from '../sync/import_error_handler';
+import { FileSystemWatcher } from '../file_system_observer';
+
+type FileSystemChangeRecord = {
+  changedHandle: FileSystemHandle;
+  relativePathComponents: string[];
+  type: 'appeared' | 'disappeared' | 'modified' | 'errored' | 'unknown';
+  root: FileSystemDirectoryHandle;
+};
 
 interface FileToWrite {
   path: string;
@@ -52,6 +60,7 @@ interface TFileSystemHook {
   destroyed(): void;
   directoryHandle: FileSystemDirectoryHandle | null;
   handleStore: DirectoryHandleStore;
+  watcher: FileSystemWatcher | null;
   loadPersistedHandle(): Promise<void>;
   requestDirectory(): Promise<void>;
   writeFiles(payload: WriteFilesPayload): Promise<void>;
@@ -64,21 +73,33 @@ interface TFileSystemHook {
   handleImportResult(payload: { results: any[] }): Promise<void>;
   getJsonHandle(path: string): Promise<FileSystemFileHandle>;
   retryImportWithCorrectedId(path: string, correctedId: string, originalChange: any): Promise<void>;
+  checkObserverSupport(): void;
+  startFileObserver(): Promise<void>;
+  stopFileObserver(): void;
+  onFileChange(records: FileSystemChangeRecord[]): Promise<void>;
+  readChangedFiles(changedPaths: Set<string>): Promise<any[]>;
 }
 
 export const FileSystemHook: TFileSystemHook = {
   directoryHandle: null,
   handleStore: null as any,
+  watcher: null,
 
   mounted() {
     this.directoryHandle = null;
     this.handleStore = new DirectoryHandleStore();
+    this.watcher = null;
 
     this.handleEvent('request_directory', this.requestDirectory.bind(this));
     this.handleEvent('write_files', this.writeFiles.bind(this));
     this.handleEvent('disconnect_directory', this.disconnectDirectory.bind(this));
     this.handleEvent('scan_files', this.scanFiles.bind(this));
     this.handleEvent('import_result', this.handleImportResult.bind(this));
+    this.handleEvent('start_file_observer', this.startFileObserver.bind(this));
+    this.handleEvent('stop_file_observer', this.stopFileObserver.bind(this));
+
+    // Check FileSystemObserver support and notify LiveView
+    this.checkObserverSupport();
 
     this.loadPersistedHandle();
   },
@@ -490,6 +511,45 @@ export const FileSystemHook: TFileSystemHook = {
   },
 
   /**
+   * Read only specific files that have changed (used by FileSystemObserver)
+   *
+   * @param changedPaths - Set of file paths (without .md extension) to read
+   * @returns Array of change objects ready for import
+   */
+  async readChangedFiles(changedPaths: Set<string>): Promise<any[]> {
+    if (!this.directoryHandle) {
+      return [];
+    }
+
+    const changes: any[] = [];
+
+    for (const path of changedPaths) {
+      try {
+        console.log(`  📄 Reading changed file: ${path}`);
+        const noteFiles = await this.readNoteFiles(path);
+
+        if (noteFiles && noteFiles.metadata && noteFiles.metadata.id) {
+          const serverPath = `${path}.md`;
+
+          changes.push({
+            id: noteFiles.metadata.id,
+            version: noteFiles.version,
+            name: noteFiles.metadata.name,
+            tags: noteFiles.metadata.tags,
+            data: noteFiles.metadata.data,
+            markdown_content: noteFiles.markdown,
+            path: serverPath
+          });
+        }
+      } catch (error) {
+        console.error(`  ❌ Failed to read file ${path}:`, error);
+      }
+    }
+
+    return changes;
+  },
+
+  /**
    * Get JSON file handle for a given path
    * Helper method for auto-fix functionality
    */
@@ -539,7 +599,117 @@ export const FileSystemHook: TFileSystemHook = {
     });
   },
 
+  /**
+   * Check if FileSystemObserver is supported and notify LiveView
+   */
+  checkObserverSupport() {
+    const supported = FileSystemWatcher.isSupported();
+    this.pushEvent('observer_supported', { supported });
+
+    if (supported) {
+      console.log('✅ FileSystemObserver supported - auto-sync available');
+    } else {
+      console.log('⚠️ FileSystemObserver not supported - manual import only');
+    }
+  },
+
+  /**
+   * Start FileSystemObserver to watch for file changes
+   * Automatically triggers scanFiles() when changes are detected
+   */
+  async startFileObserver() {
+    if (!this.directoryHandle) {
+      this.pushEvent('directory_error', { message: 'No directory connected' });
+      return;
+    }
+
+    if (!FileSystemWatcher.isSupported()) {
+      this.pushEvent('directory_error', { message: 'FileSystemObserver not supported' });
+      return;
+    }
+
+    try {
+      // Create watcher that will call onFileChange when changes detected
+      this.watcher = new FileSystemWatcher(
+        this.directoryHandle,
+        (records) => this.onFileChange(records),
+        1000 // 1 second debounce
+      );
+
+      await this.watcher.start();
+      this.pushEvent('watching_started', {});
+      console.log('👀 FileSystemObserver started watching');
+    } catch (error) {
+      console.error('Failed to start FileSystemObserver:', error);
+      this.pushEvent('directory_error', {
+        message: `Failed to start watching: ${(error as Error).message}`
+      });
+    }
+  },
+
+  /**
+   * Stop FileSystemObserver
+   */
+  stopFileObserver() {
+    if (this.watcher) {
+      this.watcher.stop();
+      this.watcher = null;
+      this.pushEvent('watching_stopped', {});
+      console.log('🛑 FileSystemObserver stopped');
+    }
+  },
+
+  /**
+   * Callback triggered when FileSystemObserver detects changes
+   * Processes only the specific files that changed
+   */
+  async onFileChange(records: FileSystemChangeRecord[]) {
+    console.log('📂 File changes detected by FileSystemObserver');
+
+    try {
+      const changedPaths = new Set<string>();
+
+      for (const record of records) {
+        if (record.type === 'modified' || record.type === 'appeared') {
+          const path = record.relativePathComponents.join('/');
+
+          if (path.endsWith('.md')) {
+            const basePath = path.replace(/\.md$/, '');
+            changedPaths.add(basePath);
+            console.log(`  ✏️  Changed: ${path} (type: ${record.type})`);
+          }
+        }
+      }
+
+      if (changedPaths.size === 0) {
+        console.log('  ℹ️  No markdown files changed, skipping import');
+        return;
+      }
+
+      console.log(`🔍 Processing ${changedPaths.size} changed file(s)`);
+
+      const changes = await this.readChangedFiles(changedPaths);
+
+      if (changes.length === 0) {
+        console.log('  ⚠️  No valid changes to import');
+        return;
+      }
+
+      console.log(`📤 Importing ${changes.length} note(s)`);
+
+      this.pushEvent('import_files', { changes });
+
+    } catch (error) {
+      console.error('Auto-import failed:', error);
+      this.pushEvent('import_error', {
+        message: `Auto-import failed: ${(error as Error).message}`
+      });
+    }
+  },
+
   destroyed() {
+    // Stop watching when component is destroyed
+    this.stopFileObserver();
     this.directoryHandle = null;
   }
 };

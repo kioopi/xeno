@@ -22,7 +22,9 @@ defmodule XenoWeb.SyncLive do
        error: nil,
        sync_errors: nil,
        id_conflict: nil,
-       path_mismatch: nil
+       path_mismatch: nil,
+       observer_supported: false,
+       watching_enabled: false
      )}
   end
 
@@ -383,6 +385,43 @@ defmodule XenoWeb.SyncLive do
   @impl true
   def handle_event("clear_errors", _params, socket) do
     {:noreply, assign(socket, sync_errors: nil, error: nil)}
+  end
+
+  @impl true
+  def handle_event("observer_supported", %{"supported" => supported}, socket) do
+    {:noreply, assign(socket, observer_supported: supported)}
+  end
+
+  @impl true
+  def handle_event("start_watching", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(watching_enabled: true)
+     |> push_event("start_file_observer", %{})}
+  end
+
+  @impl true
+  def handle_event("stop_watching", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(watching_enabled: false)
+     |> push_event("stop_file_observer", %{})}
+  end
+
+  @impl true
+  def handle_event("watching_started", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(watching_enabled: true)
+     |> put_flash(:info, "Auto-sync active")}
+  end
+
+  @impl true
+  def handle_event("watching_stopped", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(watching_enabled: false)
+     |> put_flash(:info, "Auto-sync paused")}
   end
 
   # Helper functions for formatting import errors

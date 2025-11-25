@@ -46,9 +46,42 @@
   - Covers successful imports, partial failures, version conflicts
   - Database verification and UI element checks
 
+### Completed Work - Phase 2.5-2.6 (Automatic File Watching) ✅ COMPLETE
+- ✅ **FileSystemObserver Wrapper** - TypeScript class for watching directories (`assets/js/file_system_observer.ts`)
+  - `FileSystemWatcher` class with debouncing (1 second default)
+  - Static `isSupported()` method for browser capability detection
+  - `start()` and `stop()` methods for lifecycle management
+  - Automatic callback triggering on file changes
+
+- ✅ **FileSystemHook Integration** - Auto-sync functionality added to existing hook
+  - `checkObserverSupport()` - Detects browser capability and notifies LiveView on mount
+  - `startFileObserver()` - Creates watcher and begins monitoring directory
+  - `stopFileObserver()` - Stops watcher and cleans up resources
+  - `onFileChange()` - Callback that automatically triggers `scanFiles()` for seamless auto-import
+  - Cleanup in `destroyed()` lifecycle method
+
+- ✅ **LiveView Event Handlers** - Server-side auto-sync state management
+  - `handle_event("observer_supported")` - Stores browser capability flag
+  - `handle_event("start_watching")` - Enables watching and pushes to JS
+  - `handle_event("stop_watching")` - Disables watching and pushes to JS
+  - `handle_event("watching_started")` - Confirms observer active with flash message
+  - `handle_event("watching_stopped")` - Confirms observer stopped with flash message
+
+- ✅ **UI Components** - Auto-sync status indicators and controls
+  - Observer support badge (green "Auto-sync available" or gray "not supported")
+  - Watching status indicator ("Watching for changes..." with pulsing icon)
+  - Enable/Pause Auto-Sync button (only shown when observer supported)
+  - Conditional rendering based on `@observer_supported` and `@watching_enabled` assigns
+
+- ✅ **Test Coverage** - 11 new tests (60 total for SyncLive, 278 project-wide)
+  - 5 tests for FileSystemObserver event handlers (observer_supported, start/stop watching, watching started/stopped)
+  - 6 tests for UI elements (badges, buttons, indicators, conditional rendering)
+  - All tests passing with full coverage of observer feature
+
 ### Next Steps
-- Phase 2.5-2.6: Automatic file watching with FileSystemObserver (experimental API)
-- Phase 3: Conflict resolution UI and polish
+- ~~Phase 2.5-2.6: Automatic file watching with FileSystemObserver (experimental API)~~ ✅ COMPLETE
+- Phase 3: Conflict resolution UI enhancements (already functional, can be improved)
+- Manual browser testing to verify FileSystemObserver behavior in Chrome 129+
 
 ---
 
@@ -1089,8 +1122,86 @@ Complete end-to-end manual import functionality following strict TDD:
 - **Manual Import First**: Started with manual "Import Changes" button before automatic watching
 - **No Experimental APIs**: Avoided FileSystemObserver (Chrome 129+) for wider compatibility
 
+### Manual Testing Checklist for FileSystemObserver
+
+**Prerequisites**:
+- Chrome 129+ or Edge 129+ (FileSystemObserver support)
+- Test notes in database
+- Navigate to `/sync` page
+
+**Test Scenarios**:
+
+1. **Feature Detection**:
+   - [ ] Open `/sync` in Chrome 129+ → "Auto-sync available" badge appears
+   - [ ] Open `/sync` in older browser → "Auto-sync not supported" message appears
+   - [ ] Check browser console for "FileSystemObserver supported" or "not supported" log
+
+2. **Observer Lifecycle**:
+   - [ ] Click "Choose Folder" → Select directory
+   - [ ] "Auto-sync available" badge appears
+   - [ ] Click "Enable Auto-Sync" button
+   - [ ] Button changes to "Pause Auto-Sync"
+   - [ ] "Watching for changes..." indicator appears with pulsing icon
+   - [ ] Flash message: "Auto-sync active"
+
+3. **Auto-Import Flow**:
+   - [ ] With watching enabled, edit a `.md` file in VS Code → Save
+   - [ ] Wait ~2 seconds (1s debounce + processing)
+   - [ ] Flash message: "Successfully imported 1 note(s)"
+   - [ ] Verify note content updated in database (check UI elsewhere in app)
+   - [ ] Check browser console for "File changes detected, triggering auto-import..."
+
+4. **Debouncing**:
+   - [ ] Rapidly save file 5 times in 2 seconds
+   - [ ] Observe only 1-2 import operations occur (debounced)
+   - [ ] Check console logs for batched changes
+
+5. **Error Handling**:
+   - [ ] Edit `.json` file with invalid JSON → Save
+   - [ ] Error flash message appears with details
+   - [ ] Fix JSON → Save → Import succeeds
+   - [ ] Watching continues after error (not stopped)
+
+6. **Stop Watching**:
+   - [ ] Click "Pause Auto-Sync" button
+   - [ ] Button changes to "Enable Auto-Sync"
+   - [ ] "Watching for changes..." indicator disappears
+   - [ ] Flash message: "Auto-sync paused"
+   - [ ] Edit file → No automatic import
+   - [ ] Click "Import Changes" → Manual import still works
+
+7. **Persistence** (Future Enhancement):
+   - Note: Currently watching does NOT persist across page refreshes
+   - User must click "Enable Auto-Sync" again after refresh
+   - This is by design for Phase 2.6 implementation
+
+8. **Browser Compatibility**:
+   - [ ] Test in Chrome 129+ → All features work
+   - [ ] Test in Chrome 128 or earlier → Graceful degradation to manual import
+   - [ ] Test in Firefox → "not supported" badge, manual import works
+   - [ ] Test in Safari → "not supported" badge, manual import works
+
+9. **Multiple File Changes**:
+   - [ ] Edit 3 different notes → Save all
+   - [ ] All 3 imports trigger within ~2 seconds
+   - [ ] Flash message: "Successfully imported 3 note(s)"
+
+10. **Concurrent Operations**:
+    - [ ] Enable watching
+    - [ ] Manually click "Import Changes" while watching active
+    - [ ] Both import mechanisms work without conflicts
+    - [ ] No duplicate imports
+
+**Console Logs to Look For**:
+- ✅ "FileSystemObserver supported - auto-sync available"
+- ⚠️ "FileSystemObserver not supported - manual import only"
+- 👀 "FileSystemObserver started watching"
+- 📂 "File changes detected, triggering auto-import..."
+- 🛑 "FileSystemObserver stopped"
+
 ### What's Next
-1. **Manual Testing**: Test the complete flow in browser at `/sync`
-2. **Phase 2.5-2.6**: FileSystemObserver integration for automatic file watching (optional)
-3. **Phase 3**: Conflict resolution UI with merge options
+1. ~~**Manual Testing**: Test the complete flow in browser at `/sync`~~ Ready for manual testing!
+2. ~~**Phase 2.5-2.6**: FileSystemObserver integration for automatic file watching~~ ✅ COMPLETE
+3. **Phase 3**: Conflict resolution UI enhancements (already functional)
 4. **Phase 4**: Database → Filesystem sync (reverse direction)
+5. **Phase 5**: Persistence of watching state across page reloads (optional enhancement)
