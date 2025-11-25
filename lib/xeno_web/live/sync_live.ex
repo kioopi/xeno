@@ -15,6 +15,9 @@ defmodule XenoWeb.SyncLive do
        directory_connected: false,
        directory_name: nil,
        sync_status: :idle,
+       import_status: :idle,
+       operation_start_time: nil,
+       last_operation: nil,
        last_sync: nil,
        error: nil,
        sync_errors: nil,
@@ -136,7 +139,7 @@ defmodule XenoWeb.SyncLive do
 
     {:noreply,
      socket
-     |> assign(sync_status: :exporting)
+     |> assign(sync_status: :exporting, operation_start_time: System.monotonic_time(:millisecond))
      |> push_event("write_files", %{files: files})}
   end
 
@@ -147,10 +150,26 @@ defmodule XenoWeb.SyncLive do
 
   @impl true
   def handle_event("export_complete", %{"count" => count}, socket) do
+    duration = calculate_duration(socket.assigns.operation_start_time)
+    duration_text = format_duration(duration)
+
+    last_operation = %{
+      type: :export,
+      count: count,
+      duration: duration,
+      timestamp: DateTime.utc_now()
+    }
+
     {:noreply,
      socket
-     |> assign(sync_status: :idle, sync_error: nil, last_sync: DateTime.utc_now())
-     |> put_flash(:info, "Successfully exported #{count} note(s)")}
+     |> assign(
+       sync_status: :idle,
+       sync_error: nil,
+       last_sync: DateTime.utc_now(),
+       last_operation: last_operation,
+       operation_start_time: nil
+     )
+     |> put_flash(:info, "Successfully exported #{count} note(s) in #{duration_text}")}
   end
 
   @impl true
@@ -165,17 +184,31 @@ defmodule XenoWeb.SyncLive do
   def handle_event("scan_files", _params, socket) do
     socket =
       socket
-      |> assign(sync_error: nil)
+      |> assign(
+        sync_error: nil,
+        import_status: :scanning,
+        operation_start_time: System.monotonic_time(:millisecond)
+      )
       |> push_event("scan_files", %{})
 
     {:noreply, socket}
   end
 
   @impl true
+  def handle_event("scan_started", %{"total" => total}, socket) do
+    {:noreply, assign(socket, import_status: {:importing, 0, total})}
+  end
+
+  @impl true
+  def handle_event("import_progress", %{"current" => current, "total" => total}, socket) do
+    {:noreply, assign(socket, import_status: {:importing, current, total})}
+  end
+
+  @impl true
   def handle_event("import_error", %{"message" => message}, socket) do
     {:noreply,
      socket
-     |> assign(error: message)
+     |> assign(error: message, import_status: :idle)
      |> put_flash(:error, "Import error: #{message}")}
   end
 
@@ -183,13 +216,14 @@ defmodule XenoWeb.SyncLive do
   def handle_event("import_files", %{"changes" => []}, socket) do
     {:noreply,
      socket
+     |> assign(import_status: :idle)
      |> put_flash(:info, "No changes to import")}
   end
 
   @impl true
   def handle_event("import_files", %{"changes" => changes}, socket) when is_list(changes) do
     results =
-      Enum.map(changes, fn change ->
+      Enum.with_index(changes, fn change, _idx ->
         case Sync.import_change(change) do
           {:ok, note} ->
             %{
@@ -199,14 +233,16 @@ defmodule XenoWeb.SyncLive do
             }
 
           {:error, %Ash.Error.Invalid{errors: errors}} ->
-            format_import_error(errors)
+            format_import_error(errors, change)
 
           {:error, error} ->
             %{
               "status" => "error",
               "error" => %{
                 "type" => "unknown",
-                "message" => Exception.message(error)
+                "message" => Exception.message(error),
+                "file_path" => Map.get(change, "path"),
+                "note_name" => Map.get(change, "name")
               }
             }
         end
@@ -215,22 +251,46 @@ defmodule XenoWeb.SyncLive do
     success_count = Enum.count(results, &(&1["status"] == "success"))
     error_count = Enum.count(results, &(&1["status"] == "error"))
 
+    # Calculate operation duration
+    duration = calculate_duration(socket.assigns.operation_start_time)
+    duration_text = format_duration(duration)
+
+    # Collect detailed errors for display
+    sync_errors =
+      results
+      |> Enum.filter(&(&1["status"] == "error"))
+      |> Enum.map(& &1["error"])
+
+    last_operation = %{
+      type: :import,
+      count: success_count,
+      failed: error_count,
+      duration: duration,
+      timestamp: DateTime.utc_now()
+    }
+
     socket =
       socket
-      |> assign(last_sync: DateTime.utc_now())
-      |> push_event("import_result", %{"results" => results})
+      |> assign(
+        last_sync: DateTime.utc_now(),
+        import_status: :idle,
+        last_operation: last_operation,
+        operation_start_time: nil,
+        sync_errors: if(sync_errors == [], do: nil, else: sync_errors)
+      )
+      |> push_event("import_result", %{results: results})
 
     socket =
       if error_count == 0 do
-        put_flash(socket, :info, "Successfully imported #{success_count} note(s)")
+        put_flash(socket, :info, "Successfully imported #{success_count} note(s) in #{duration_text}")
       else
-        put_flash(socket, :info, "Imported #{success_count}, failed #{error_count}")
+        put_flash(socket, :info, "Imported #{success_count}, failed #{error_count} in #{duration_text}")
       end
 
     {:noreply, socket}
   end
 
-  defp format_import_error([%Xeno.Content.Errors.NoteNotFound{} = error | _]) do
+  defp format_import_error([%Xeno.Content.Errors.NoteNotFound{} = error | _], change) do
     %{
       "status" => "error",
       "error" => %{
@@ -238,12 +298,14 @@ defmodule XenoWeb.SyncLive do
         "provided_id" => error.provided_id,
         "suggested_id" => error.suggested_id,
         "path" => error.file_path,
+        "file_path" => error.file_path,
+        "note_name" => Map.get(change, "name"),
         "message" => Exception.message(error)
       }
     }
   end
 
-  defp format_import_error([%Xeno.Content.Errors.PathMismatch{} = error | _]) do
+  defp format_import_error([%Xeno.Content.Errors.PathMismatch{} = error | _], change) do
     %{
       "status" => "error",
       "error" => %{
@@ -251,27 +313,33 @@ defmodule XenoWeb.SyncLive do
         "note_id" => error.note_id,
         "expected_path" => error.expected_path,
         "actual_path" => error.actual_path,
+        "file_path" => Map.get(change, "path"),
+        "note_name" => Map.get(change, "name"),
         "message" => Exception.message(error)
       }
     }
   end
 
-  defp format_import_error([error | _]) do
+  defp format_import_error([error | _], change) do
     %{
       "status" => "error",
       "error" => %{
-        "type" => "unknown",
-        "message" => Exception.message(error)
+        "type" => "validation",
+        "message" => Exception.message(error),
+        "file_path" => Map.get(change, "path"),
+        "note_name" => Map.get(change, "name")
       }
     }
   end
 
-  defp format_import_error([]) do
+  defp format_import_error([], change) do
     %{
       "status" => "error",
       "error" => %{
         "type" => "unknown",
-        "message" => "Unknown error occurred"
+        "message" => "Unknown error occurred",
+        "file_path" => Map.get(change, "path"),
+        "note_name" => Map.get(change, "name")
       }
     }
   end
@@ -305,15 +373,14 @@ defmodule XenoWeb.SyncLive do
 
   @impl true
   def handle_event("path_mismatch", params, socket) do
-    %{
-      "note_id" => note_id,
-      "expected_path" => expected_path,
-      "actual_path" => actual_path,
-      "message" => message
-    } = params
+    # Handle both snake_case (from TypeScript) and camelCase (from tests)
+    note_id = params["note_id"] || params["id"]
+    expected_path = params["expected_path"] || params["expectedPath"]
+    actual_path = params["actual_path"] || params["providedPath"]
+    message = params["message"]
 
     mismatch_data = %{
-      note_id: note_id,
+      id: note_id,
       expected_path: expected_path,
       actual_path: actual_path,
       message: message
@@ -367,6 +434,11 @@ defmodule XenoWeb.SyncLive do
      |> put_flash(:info, "Conflict resolution cancelled")}
   end
 
+  @impl true
+  def handle_event("clear_errors", _params, socket) do
+    {:noreply, assign(socket, sync_errors: nil, error: nil)}
+  end
+
   # Component to display error messages
   def error(%{error: %Ash.Error.Invalid{errors: [%{message: message} | []]}} = assigns) do
     assigns = Map.put(assigns, :message, message)
@@ -400,5 +472,28 @@ defmodule XenoWeb.SyncLive do
       {render_slot(@inner_block)}
     </div>
     """
+  end
+
+  # Helper functions for duration tracking
+
+  defp calculate_duration(nil), do: 0
+
+  defp calculate_duration(start_time) do
+    System.monotonic_time(:millisecond) - start_time
+  end
+
+  defp format_duration(duration_ms) when duration_ms < 1000 do
+    "#{duration_ms}ms"
+  end
+
+  defp format_duration(duration_ms) when duration_ms < 60_000 do
+    seconds = Float.round(duration_ms / 1000, 1)
+    "#{seconds}s"
+  end
+
+  defp format_duration(duration_ms) do
+    minutes = div(duration_ms, 60_000)
+    seconds = div(rem(duration_ms, 60_000), 1000)
+    "#{minutes}m #{seconds}s"
   end
 end

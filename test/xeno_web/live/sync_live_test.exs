@@ -4,6 +4,14 @@ defmodule XenoWeb.SyncLiveTest do
   import Phoenix.LiveViewTest
   import Xeno.Generators
 
+  defp drain_progress_events(view) do
+    receive do
+      {_, {:push_event, "import_progress", _}} -> drain_progress_events(view)
+    after
+      0 -> :ok
+    end
+  end
+
   describe "mount/3" do
     test "renders sync page", %{conn: conn} do
       {:ok, view, html} = live(conn, ~p"/sync")
@@ -283,7 +291,7 @@ defmodule XenoWeb.SyncLiveTest do
 
       html = render(view)
       assert html =~ "Successfully exported 10 note(s)"
-      assert html =~ "Last sync:"
+      assert html =~ "Last export:"
     end
 
     test "export_error shows error message", %{conn: conn} do
@@ -330,7 +338,7 @@ defmodule XenoWeb.SyncLiveTest do
 
       html = render(view)
       assert html =~ "Successfully imported 1 note(s)"
-      assert html =~ "Last sync:"
+      assert html =~ "Last import:"
 
       {:ok, updated_note} = Xeno.Content.Note.get(note.id)
       assert updated_note.text == "Updated content"
@@ -444,7 +452,7 @@ defmodule XenoWeb.SyncLiveTest do
       render_hook(view, "import_files", %{"changes" => changes})
 
       html = render(view)
-      assert html =~ "Last sync:"
+      assert html =~ "Last import:"
     end
 
     test "shows error when no changes provided", %{conn: conn} do
@@ -499,7 +507,8 @@ defmodule XenoWeb.SyncLiveTest do
 
       render_hook(view, "import_files", %{"changes" => changes})
 
-      assert_push_event(view, "import_result", %{"results" => [error_result]})
+      drain_progress_events(view)
+      assert_push_event(view, "import_result", %{results: [error_result]})
 
       assert error_result["status"] == "error"
       assert error_result["error"]["type"] == "id_not_found"
@@ -524,7 +533,8 @@ defmodule XenoWeb.SyncLiveTest do
 
       render_hook(view, "import_files", %{"changes" => changes})
 
-      assert_push_event(view, "import_result", %{"results" => [error_result]})
+      drain_progress_events(view)
+      assert_push_event(view, "import_result", %{results: [error_result]})
 
       assert error_result["status"] == "error"
       assert error_result["error"]["type"] == "path_mismatch"
@@ -549,7 +559,8 @@ defmodule XenoWeb.SyncLiveTest do
 
       render_hook(view, "import_files", %{"changes" => changes})
 
-      assert_push_event(view, "import_result", %{"results" => [success_result]})
+      drain_progress_events(view)
+      assert_push_event(view, "import_result", %{results: [success_result]})
 
       assert success_result["status"] == "success"
       assert success_result["note_id"] == note.id
@@ -581,7 +592,8 @@ defmodule XenoWeb.SyncLiveTest do
 
       render_hook(view, "import_files", %{"changes" => changes})
 
-      assert_push_event(view, "import_result", %{"results" => results})
+      drain_progress_events(view)
+      assert_push_event(view, "import_result", %{results: results})
       assert length(results) == 2
 
       [success_result, error_result] = results
@@ -647,7 +659,7 @@ defmodule XenoWeb.SyncLiveTest do
 
       # Should store mismatch data
       assert %{path_mismatch: mismatch} = :sys.get_state(view.pid).socket.assigns
-      assert mismatch.note_id == "abc-123"
+      assert mismatch.id == "abc-123"
       assert mismatch.expected_path == "old/location.md"
       assert mismatch.actual_path == "new/location.md"
     end
@@ -937,6 +949,7 @@ defmodule XenoWeb.SyncLiveTest do
         ]
       })
 
+      drain_progress_events(view)
       assert_push_event(view, "import_result", %{results: results})
       assert [result] = results
 
@@ -1003,6 +1016,7 @@ defmodule XenoWeb.SyncLiveTest do
         ]
       })
 
+      drain_progress_events(view)
       assert_push_event(view, "import_result", %{results: results})
       assert [result] = results
 
@@ -1087,6 +1101,7 @@ defmodule XenoWeb.SyncLiveTest do
         ]
       })
 
+      drain_progress_events(view)
       assert_push_event(view, "import_result", %{results: results})
       assert [result] = results
 
@@ -1134,6 +1149,7 @@ defmodule XenoWeb.SyncLiveTest do
         ]
       })
 
+      drain_progress_events(view)
       assert_push_event(view, "import_result", %{results: results})
       assert [result] = results
 
@@ -1152,7 +1168,7 @@ defmodule XenoWeb.SyncLiveTest do
       assert %{path_mismatch: path_mismatch} = :sys.get_state(view.pid).socket.assigns
       assert path_mismatch.id == note_id
       assert path_mismatch.expected_path == new_path
-      assert path_mismatch.provided_path == old_path
+      assert path_mismatch.actual_path == old_path
     end
 
     test "optimistic lock failure → version conflict → user must pull latest", %{
@@ -1200,11 +1216,12 @@ defmodule XenoWeb.SyncLiveTest do
         ]
       })
 
+      drain_progress_events(view)
       assert_push_event(view, "import_result", %{results: results})
       assert [result] = results
 
       assert result["status"] == "error"
-      assert result["error"]["type"] == "unknown"
+      assert result["error"]["type"] == "validation"
       assert result["error"]["message"] =~ "stale"
 
       {:ok, unchanged_note} = Xeno.Content.Note.get(note_id)
@@ -1246,6 +1263,7 @@ defmodule XenoWeb.SyncLiveTest do
         ]
       })
 
+      drain_progress_events(view)
       assert_push_event(view, "import_result", %{results: results})
       assert [result] = results
       assert result["status"] == "error"

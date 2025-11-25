@@ -360,6 +360,11 @@ export const FileSystemHook: TFileSystemHook = {
       console.log('🔍 Scanning files for changes...');
       const changes = await this.scanForChanges();
 
+      // Notify server about total files found
+      this.pushEvent('scan_started', {
+        total: changes.length
+      });
+
       console.group('📤 Sending changes to server');
       console.log('Total changes:', changes.length);
       changes.forEach((change, idx) => {

@@ -41,9 +41,12 @@
             >
               <%= cond do %>
                 <% @sync_status == :exporting -> %>
+                  <span class="loading loading-spinner loading-sm"></span>
                   Exporting...
                 <% match?({:exporting, _, _}, @sync_status) -> %>
-                  <% {_, current, total} = @sync_status %> Exporting {current}/{total}
+                  <% {_, current, total} = @sync_status %>
+                  <span class="loading loading-spinner loading-sm"></span>
+                  Exporting {current}/{total}
                 <% true -> %>
                   Export All Notes
               <% end %>
@@ -52,9 +55,23 @@
             <button
               id="import-btn"
               phx-click="scan_files"
-              class="btn btn-secondary"
+              disabled={@import_status != :idle}
+              class={[
+                "btn btn-secondary",
+                @import_status != :idle && "btn-disabled"
+              ]}
             >
-              Import Changes
+              <%= cond do %>
+                <% @import_status == :scanning -> %>
+                  <span class="loading loading-spinner loading-sm"></span>
+                  Scanning...
+                <% match?({:importing, _, _}, @import_status) -> %>
+                  <% {_, current, total} = @import_status %>
+                  <span class="loading loading-spinner loading-sm"></span>
+                  Importing {current}/{total}
+                <% true -> %>
+                  Import Changes
+              <% end %>
             </button>
 
             <button
@@ -71,10 +88,39 @@
             <p><strong>Import:</strong> Load changes from local files back to database</p>
           </div>
 
-          <%= if @last_sync do %>
-            <p class="text-sm opacity-70 mt-4">
-              Last sync: {Calendar.strftime(@last_sync, "%Y-%m-%d %H:%M:%S")}
-            </p>
+          <%= if @last_operation do %>
+            <div class="mt-4 text-sm opacity-70 flex items-center gap-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4 text-success"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>
+                Last <%= if @last_operation.type == :export, do: "export", else: "import" %>:
+                <%= @last_operation.count %> note(s)
+                <%= if @last_operation.type == :import && @last_operation.failed > 0 do %>
+                  (<%= @last_operation.failed %> failed)
+                <% end %>
+                in <%= cond do %>
+                  <% @last_operation.duration < 1000 -> %>
+                    <%= @last_operation.duration %>ms
+                  <% @last_operation.duration < 60_000 -> %>
+                    <%= Float.round(@last_operation.duration / 1000, 1) %>s
+                  <% true -> %>
+                    <%= div(@last_operation.duration, 60_000) %>m <%= div(rem(@last_operation.duration, 60_000), 1000) %>s
+                <% end %>
+                • {Calendar.strftime(@last_operation.timestamp, "%H:%M:%S")}
+              </span>
+            </div>
           <% end %>
         <% else %>
           <button id="connect-directory-btn" phx-click="connect_directory" class="btn btn-primary">
@@ -108,16 +154,151 @@
     <% end %>
 
     <%= if @sync_errors do %>
-      <div id="error-container" class="space-y-6 mb-6">
-        <div class="card bg-base-200">
-          <div class="card-body">
-            <h3 class="card-title">Sync Errors</h3>
-            <div>There have been errors while importing notes.</div>
-            <ul>
-              <li :for={error <- @sync_errors}>
-                <.error error={error} />
-              </li>
-            </ul>
+      <div id="error-container" class="space-y-3 mb-6">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-lg font-semibold">
+            Sync Errors ({length(@sync_errors)})
+          </h3>
+          <button
+            id="clear-errors-btn"
+            phx-click="clear_errors"
+            class="btn btn-ghost btn-sm"
+          >
+            Clear All
+          </button>
+        </div>
+
+        <div :for={{error, idx} <- Enum.with_index(@sync_errors)} class="alert shadow-lg">
+          <%!-- Icon based on error type --%>
+          <%= cond do %>
+            <% error["type"] == "id_not_found" -> %>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="stroke-warning shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            <% error["type"] == "path_mismatch" -> %>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="stroke-error shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            <% error["type"] == "validation" -> %>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="stroke-error shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            <% true -> %>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="stroke-info shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+          <% end %>
+
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1">
+              <%!-- Error type badge --%>
+              <%= cond do %>
+                <% error["type"] == "id_not_found" -> %>
+                  <span class="badge badge-warning badge-sm">ID Not Found</span>
+                <% error["type"] == "path_mismatch" -> %>
+                  <span class="badge badge-error badge-sm">Path Mismatch</span>
+                <% error["type"] == "validation" -> %>
+                  <span class="badge badge-error badge-sm">Validation Error</span>
+                <% true -> %>
+                  <span class="badge badge-info badge-sm">Unknown Error</span>
+              <% end %>
+              <%= if error["note_name"] do %>
+                <span class="font-semibold">{error["note_name"]}</span>
+              <% end %>
+            </div>
+
+            <%= if error["file_path"] do %>
+              <code class="text-xs bg-base-200 px-2 py-1 rounded block mb-1">
+                {error["file_path"]}
+              </code>
+            <% end %>
+
+            <p class="text-sm">{error["message"]}</p>
+
+            <%!-- Collapsible details section --%>
+            <%= if error["type"] == "id_not_found" && error["suggested_id"] do %>
+              <details class="mt-2">
+                <summary class="text-xs cursor-pointer opacity-70 hover:opacity-100">
+                  Show Details
+                </summary>
+                <div class="text-xs mt-2 bg-base-200 p-2 rounded">
+                  <div>
+                    <strong>Provided ID:</strong>
+                    <code class="ml-1">{error["provided_id"]}</code>
+                  </div>
+                  <%= if error["suggested_id"] do %>
+                    <div>
+                      <strong>Suggested ID:</strong>
+                      <code class="ml-1">{error["suggested_id"]}</code>
+                    </div>
+                  <% end %>
+                </div>
+              </details>
+            <% end %>
+
+            <%= if error["type"] == "path_mismatch" do %>
+              <details class="mt-2">
+                <summary class="text-xs cursor-pointer opacity-70 hover:opacity-100">
+                  Show Details
+                </summary>
+                <div class="text-xs mt-2 bg-base-200 p-2 rounded space-y-1">
+                  <div>
+                    <strong>Expected Path:</strong>
+                    <code class="ml-1">{error["expected_path"]}</code>
+                  </div>
+                  <div>
+                    <strong>Actual Path:</strong>
+                    <code class="ml-1">{error["actual_path"]}</code>
+                  </div>
+                  <%= if error["note_id"] do %>
+                    <div>
+                      <strong>Note ID:</strong>
+                      <code class="ml-1">{error["note_id"]}</code>
+                    </div>
+                  <% end %>
+                </div>
+              </details>
+            <% end %>
           </div>
         </div>
       </div>
