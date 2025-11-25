@@ -17,7 +17,9 @@ defmodule XenoWeb.SyncLive do
        sync_status: :idle,
        last_sync: nil,
        error: nil,
-       sync_errors: nil
+       sync_errors: nil,
+       id_conflict: nil,
+       path_mismatch: nil
      )}
   end
 
@@ -272,6 +274,97 @@ defmodule XenoWeb.SyncLive do
         "message" => "Unknown error occurred"
       }
     }
+  end
+
+  @impl true
+  def handle_event("id_conflict", params, socket) do
+    %{
+      "path" => path,
+      "jsonId" => json_id,
+      "serverId" => server_id,
+      "localId" => local_id,
+      "reason" => reason
+    } = params
+
+    conflict_data = %{
+      path: path,
+      json_id: json_id,
+      server_id: server_id,
+      local_id: local_id,
+      reason: reason
+    }
+
+    {:noreply,
+     socket
+     |> assign(id_conflict: conflict_data)
+     |> put_flash(
+       :warning,
+       "ID conflict detected for #{path}. Please resolve the conflict."
+     )}
+  end
+
+  @impl true
+  def handle_event("path_mismatch", params, socket) do
+    %{
+      "note_id" => note_id,
+      "expected_path" => expected_path,
+      "actual_path" => actual_path,
+      "message" => message
+    } = params
+
+    mismatch_data = %{
+      note_id: note_id,
+      expected_path: expected_path,
+      actual_path: actual_path,
+      message: message
+    }
+
+    {:noreply,
+     socket
+     |> assign(path_mismatch: mismatch_data)
+     |> put_flash(
+       :error,
+       "Path mismatch: Note #{note_id} exists at #{actual_path}, but file is at #{expected_path}"
+     )}
+  end
+
+  @impl true
+  def handle_event("resolve_conflict", %{"choice" => choice}, socket) do
+    case socket.assigns.id_conflict do
+      nil ->
+        {:noreply, socket}
+
+      conflict ->
+        # Determine which ID to use based on choice
+        chosen_id =
+          case choice do
+            "server" -> conflict.server_id
+            "local" -> conflict.local_id
+            "json" -> conflict.json_id
+            _ -> conflict.server_id
+          end
+
+        # Emit event back to FileSystemHook to apply the chosen ID
+        socket =
+          socket
+          |> push_event("resolve_conflict", %{
+            path: conflict.path,
+            chosen_id: chosen_id,
+            choice: choice
+          })
+          |> assign(id_conflict: nil)
+          |> put_flash(:info, "Conflict resolved. Retrying import with chosen ID...")
+
+        {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("cancel_conflict", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(id_conflict: nil)
+     |> put_flash(:info, "Conflict resolution cancelled")}
   end
 
   # Component to display error messages

@@ -30,6 +30,7 @@ defmodule Xeno.Content.Note do
     define :create, action: :create
     define :update, action: :update
     define :import_from_filesystem, action: :import_from_filesystem
+    define :update_from_fs
     define :destroy, action: :destroy
   end
 
@@ -126,25 +127,9 @@ defmodule Xeno.Content.Note do
       run fn input, _context ->
         case Xeno.Content.IdResolver.resolve(input.arguments.id, input.arguments.path) do
           {:ok, note} ->
-            note_with_version =
-              if input.arguments.version do
-                %{note | version: input.arguments.version}
-              else
-                note
-              end
-
-            update_attrs = prepare_update_attrs(input.arguments)
-
-            case note_with_version
-                 |> Ash.Changeset.for_update(:update_from_fs, update_attrs)
-                 |> Ash.update() do
-              {:ok, updated_note} -> {:ok, updated_note}
-              {:error, error} -> {:error, error}
-            end
+            update_with_version(note, input.arguments)
 
           {:path_mismatch, note, expected_path} ->
-            note = Ash.load!(note, :file_path)
-
             {:error,
              Xeno.Content.Errors.PathMismatch.exception(
                note_id: note.id,
@@ -157,6 +142,18 @@ defmodule Xeno.Content.Note do
             {:error, error}
         end
       end
+    end
+  end
+
+  defp update_with_version(note, arguments) do
+    update_attrs = prepare_update_attrs(arguments)
+
+    note_with_version =
+      Map.update!(note, :version, &(arguments.version || &1))
+
+    case __MODULE__.update_from_fs(note_with_version, update_attrs) do
+      {:ok, updated_note} -> {:ok, updated_note}
+      {:error, error} -> {:error, error}
     end
   end
 

@@ -20,6 +20,7 @@
 import { DirectoryHandleStore } from '../directory_handle_store';
 import { noteMetadataStore } from '../stores/note_metadata_store';
 import { jsonFileManager } from '../sync/json_file_manager';
+import { importErrorHandler } from '../sync/import_error_handler';
 
 interface FileToWrite {
   path: string;
@@ -61,6 +62,8 @@ interface TFileSystemHook {
   scanDirectory(dirHandle: FileSystemDirectoryHandle, currentPath: string, changes: any[]): Promise<void>;
   readNoteFiles(path: string): Promise<{ markdown: string, metadata: any, version?: number } | null>;
   handleImportResult(payload: { results: any[] }): Promise<void>;
+  getJsonHandle(path: string): Promise<FileSystemFileHandle>;
+  retryImportWithCorrectedId(path: string, correctedId: string, originalChange: any): Promise<void>;
 }
 
 export const FileSystemHook: TFileSystemHook = {
@@ -82,7 +85,7 @@ export const FileSystemHook: TFileSystemHook = {
 
   /**
    * Handle import results from the server
-   * Updates IndexedDB with new versions and logs detailed information
+   * Updates IndexedDB with new versions and implements auto-fix for ID errors
    */
   async handleImportResult(payload: { results: any[] }) {
     console.group('📥 Import Results');
@@ -96,7 +99,6 @@ export const FileSystemHook: TFileSystemHook = {
         });
 
         // Update IndexedDB with new version
-        // We need to find the metadata by ID since we don't have the path in the result
         const metadata = await noteMetadataStore.getById(result.note_id);
         if (metadata) {
           await noteMetadataStore.upsert({
@@ -114,20 +116,61 @@ export const FileSystemHook: TFileSystemHook = {
           details: result.error
         });
 
-        // Log specific error types with helpful context
-        if (result.error.type === 'id_not_found') {
-          console.warn('💡 ID Not Found - Suggested fix:', {
-            provided_id: result.error.provided_id,
-            suggested_id: result.error.suggested_id,
-            path: result.error.path,
-            message: 'The ID in the JSON file doesn\'t match the server'
-          });
+        // Handle different error types
+        if (result.error.type === 'id_not_found' && result.error.suggested_id) {
+          // Auto-fix flow using ImportErrorHandler
+          const autoFixResult = await importErrorHandler.handleError(
+            result.error,
+            result.error.path,
+            // Auto-fix callback: update JSON and retry import
+            async (correctedId: string) => {
+              console.log(`🔧 Auto-fixing ID in ${result.error.path}: ${result.error.provided_id} → ${correctedId}`);
+
+              try {
+                // Get JSON file handle and update ID
+                const jsonHandle = await this.getJsonHandle(result.error.path);
+                await jsonFileManager.updateId(jsonHandle, correctedId);
+
+                // Update IndexedDB with corrected ID
+                const localMeta = await noteMetadataStore.getByPath(result.error.path);
+                if (localMeta) {
+                  await noteMetadataStore.upsert({
+                    ...localMeta,
+                    id: correctedId
+                  });
+                }
+
+                // Retry import with corrected ID
+                await this.retryImportWithCorrectedId(result.error.path, correctedId, result.originalChange);
+              } catch (error) {
+                console.error('Failed to auto-fix:', error);
+                throw error;
+              }
+            },
+            // Conflict callback: emit event for UI to handle
+            async (options) => {
+              console.warn('⚠️ ID Conflict - user intervention needed:', options);
+              this.pushEvent('id_conflict', {
+                path: options.filePath,
+                jsonId: options.jsonId,
+                serverId: options.serverId,
+                localId: options.localId,
+                reason: options.reason
+              });
+              return null; // User will resolve via UI
+            }
+          );
+
+          if (autoFixResult.action === 'auto_fixed') {
+            console.log(`✅ Auto-fix succeeded for ${result.error.path}`);
+          }
         } else if (result.error.type === 'path_mismatch') {
-          console.warn('⚠️ Path Mismatch:', {
+          // Emit path mismatch event for UI to handle
+          this.pushEvent('path_mismatch', {
             note_id: result.error.note_id,
-            expected: result.error.expected_path,
-            actual: result.error.actual_path,
-            message: 'The note exists but at a different location'
+            expected_path: result.error.expected_path,
+            actual_path: result.error.actual_path,
+            message: result.error.message
           });
         }
       }
@@ -439,6 +482,56 @@ export const FileSystemHook: TFileSystemHook = {
         }
       }
     }
+  },
+
+  /**
+   * Get JSON file handle for a given path
+   * Helper method for auto-fix functionality
+   */
+  async getJsonHandle(path: string): Promise<FileSystemFileHandle> {
+    if (!this.directoryHandle) {
+      throw new Error('No directory connected');
+    }
+
+    const pathParts = path.replace(/\.md$/, '').split('/').filter(p => p);
+    const filename = pathParts.pop()!;
+
+    let currentDir = this.directoryHandle;
+
+    for (const dirName of pathParts) {
+      currentDir = await currentDir.getDirectoryHandle(dirName);
+    }
+
+    return await currentDir.getFileHandle(`${filename}.json`);
+  },
+
+  /**
+   * Retry import after auto-fixing the ID
+   * This re-reads the file and sends it to the server
+   */
+  async retryImportWithCorrectedId(path: string, correctedId: string, originalChange: any): Promise<void> {
+    console.log(`🔄 Retrying import for ${path} with corrected ID ${correctedId}`);
+
+    // Re-read the note files (which now have the corrected ID)
+    const noteFiles = await this.readNoteFiles(path.replace(/\.md$/, ''));
+
+    if (!noteFiles) {
+      console.error('Failed to re-read note files after auto-fix');
+      return;
+    }
+
+    // Send to server again
+    this.pushEvent('import_files', {
+      changes: [{
+        id: correctedId,
+        version: noteFiles.version,
+        name: noteFiles.metadata.name,
+        tags: noteFiles.metadata.tags,
+        data: noteFiles.metadata.data,
+        markdown_content: noteFiles.markdown,
+        path: path
+      }]
+    });
   },
 
   destroyed() {

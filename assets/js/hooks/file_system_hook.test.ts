@@ -250,8 +250,9 @@ describe('FileSystemHook', () => {
     });
 
     it('handles multiple results with mixed success and errors', async () => {
-      const successNoteId = 'abc-123';
-      const errorNoteId = 'def-456';
+      const successNoteId = '66666666-6666-6666-6666-666666666666';
+      const errorNoteId = '77777777-7777-7777-7777-777777777777';
+      const wrongId = '88888888-8888-8888-8888-888888888888';
 
       await noteMetadataStore.upsert({
         id: successNoteId,
@@ -260,6 +261,25 @@ describe('FileSystemHook', () => {
         filename: 'note1',
         lastSynced: new Date()
       });
+
+      // Setup for auto-fix
+      hook.directoryHandle = { name: 'test-folder' };
+      hook.getJsonHandle = vi.fn().mockResolvedValue({
+        getFile: vi.fn().mockResolvedValue({
+          text: vi.fn().mockResolvedValue(JSON.stringify({
+            _id: wrongId,
+            _schema_version: '1.0',
+            name: 'Error Note',
+            tags: [],
+            data: {}
+          }))
+        }),
+        createWritable: vi.fn().mockResolvedValue({
+          write: vi.fn(),
+          close: vi.fn()
+        })
+      });
+      hook.readNoteFiles = vi.fn();
 
       const payload = {
         results: [
@@ -272,8 +292,9 @@ describe('FileSystemHook', () => {
             status: 'error',
             error: {
               type: 'id_not_found',
-              provided_id: 'wrong-id',
+              provided_id: wrongId,
               suggested_id: errorNoteId,
+              path: 'note2.md',
               message: 'Not found'
             }
           }
@@ -281,6 +302,7 @@ describe('FileSystemHook', () => {
       };
 
       await hook.handleImportResult(payload);
+      await new Promise(resolve => setTimeout(resolve, 10));
 
       const updated = await noteMetadataStore.getByPath('note1');
       expect(updated?.version).toBe(2);
@@ -308,69 +330,11 @@ describe('FileSystemHook', () => {
       consoleSpy.mockRestore();
     });
 
-    it('logs id_not_found errors with suggestion context', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Note: id_not_found errors now trigger auto-fix flow instead of just logging
+    // See "handleImportResult - auto-fix integration" tests below for auto-fix behavior
 
-      const payload = {
-        results: [
-          {
-            status: 'error',
-            error: {
-              type: 'id_not_found',
-              provided_id: 'wrong-id',
-              suggested_id: 'correct-id',
-              path: 'my-note',
-              message: 'Note not found'
-            }
-          }
-        ]
-      };
-
-      await hook.handleImportResult(payload);
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('ID Not Found'),
-        expect.objectContaining({
-          provided_id: 'wrong-id',
-          suggested_id: 'correct-id',
-          path: 'my-note'
-        })
-      );
-
-      consoleSpy.mockRestore();
-    });
-
-    it('logs path_mismatch errors with location details', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-      const payload = {
-        results: [
-          {
-            status: 'error',
-            error: {
-              type: 'path_mismatch',
-              note_id: 'abc-123',
-              expected_path: 'old/path',
-              actual_path: 'new/path',
-              message: 'Path mismatch'
-            }
-          }
-        ]
-      };
-
-      await hook.handleImportResult(payload);
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Path Mismatch'),
-        expect.objectContaining({
-          note_id: 'abc-123',
-          expected: 'old/path',
-          actual: 'new/path'
-        })
-      );
-
-      consoleSpy.mockRestore();
-    });
+    // Note: path_mismatch errors now emit events instead of just logging
+    // See "handles path_mismatch errors appropriately" test below for event emission
   });
 
   describe('loadPersistedHandle', () => {
@@ -436,6 +400,333 @@ describe('FileSystemHook', () => {
       );
 
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe('handleImportResult - auto-fix integration', () => {
+    beforeEach(async () => {
+      await noteMetadataStore.clear();
+    });
+
+    it('auto-fixes ID when server and IndexedDB agree (typo case)', async () => {
+      // Use valid UUIDs
+      const correctId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+      const typoId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+
+      // Setup: IndexedDB has correct ID
+      await noteMetadataStore.upsert({
+        id: correctId,
+        version: 1,
+        path: 'projects/work/my-note.md',
+        filename: 'my-note',
+        lastSynced: new Date()
+      });
+
+      // Setup: directory handle
+      hook.directoryHandle = { name: 'test-folder' };
+
+      // Mock getJsonHandle to return a writable handle
+      const mockJsonContent = {
+        _id: typoId,
+        _schema_version: '1.0',
+        name: 'My Note',
+        tags: [],
+        data: {}
+      };
+      let updatedJson = null;
+
+      const mockJsonHandle = {
+        getFile: vi.fn().mockResolvedValue({
+          text: vi.fn().mockResolvedValue(JSON.stringify(mockJsonContent))
+        }),
+        createWritable: vi.fn().mockResolvedValue({
+          write: vi.fn((content: string) => {
+            updatedJson = JSON.parse(content);
+          }),
+          close: vi.fn()
+        })
+      };
+
+      hook.getJsonHandle = vi.fn().mockResolvedValue(mockJsonHandle);
+
+      // Mock readNoteFiles for retry
+      hook.readNoteFiles = vi.fn().mockResolvedValue({
+        markdown: 'Content',
+        metadata: {
+          name: 'My Note',
+          tags: [],
+          data: {}
+        },
+        version: 1
+      });
+
+      // Trigger import with error
+      await hook.handleImportResult({
+        results: [{
+          status: 'error',
+          error: {
+            type: 'id_not_found',
+            provided_id: typoId,
+            suggested_id: correctId,
+            path: 'projects/work/my-note.md',
+            message: 'Note not found'
+          }
+        }]
+      });
+
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Should have called getJsonHandle to fix the file
+      expect(hook.getJsonHandle).toHaveBeenCalledWith('projects/work/my-note.md');
+
+      // Should have written corrected JSON
+      expect(updatedJson).not.toBeNull();
+      expect(updatedJson?._id).toBe(correctId);
+
+      // Should have pushed retry event
+      expect(mockPushEvent).toHaveBeenCalledWith('import_files', expect.objectContaining({
+        changes: expect.arrayContaining([
+          expect.objectContaining({
+            id: correctId
+          })
+        ])
+      }));
+    });
+
+    it('auto-fixes on new machine when no IndexedDB entry exists', async () => {
+      // No IndexedDB entry for this path
+      const oldId = '11111111-1111-1111-1111-111111111111';
+      const serverId = '22222222-2222-2222-2222-222222222222';
+
+      // Setup: directory handle
+      hook.directoryHandle = { name: 'test-folder' };
+
+      const mockJsonContent = {
+        _id: oldId,
+        _schema_version: '1.0',
+        name: 'My Note',
+        tags: [],
+        data: {}
+      };
+      let updatedJson = null;
+
+      const mockJsonHandle = {
+        getFile: vi.fn().mockResolvedValue({
+          text: vi.fn().mockResolvedValue(JSON.stringify(mockJsonContent))
+        }),
+        createWritable: vi.fn().mockResolvedValue({
+          write: vi.fn((content: string) => {
+            updatedJson = JSON.parse(content);
+          }),
+          close: vi.fn()
+        })
+      };
+
+      hook.getJsonHandle = vi.fn().mockResolvedValue(mockJsonHandle);
+      hook.readNoteFiles = vi.fn().mockResolvedValue({
+        markdown: 'Content',
+        metadata: {
+          name: 'My Note',
+          tags: [],
+          data: {}
+        },
+        version: undefined
+      });
+
+      await hook.handleImportResult({
+        results: [{
+          status: 'error',
+          error: {
+            type: 'id_not_found',
+            provided_id: oldId,
+            suggested_id: serverId,
+            path: 'notes/example.md',
+            message: 'Note not found'
+          }
+        }]
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Should trust server and auto-fix
+      expect(hook.getJsonHandle).toHaveBeenCalledWith('notes/example.md');
+      expect(updatedJson?._id).toBe(serverId);
+    });
+
+    it('emits conflict event when IDs disagree', async () => {
+      // Setup: IndexedDB has different ID than server suggests
+      await noteMetadataStore.upsert({
+        id: 'local-cached-id',
+        version: 1,
+        path: 'conflict/note.md',
+        filename: 'note',
+        lastSynced: new Date()
+      });
+
+      await hook.handleImportResult({
+        results: [{
+          status: 'error',
+          error: {
+            type: 'id_not_found',
+            provided_id: 'json-file-id',
+            suggested_id: 'server-says-id',
+            path: 'conflict/note.md',
+            message: 'Conflicting IDs'
+          }
+        }]
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Should emit conflict event for UI to handle
+      expect(mockPushEvent).toHaveBeenCalledWith('id_conflict', {
+        path: 'conflict/note.md',
+        jsonId: 'json-file-id',
+        serverId: 'server-says-id',
+        localId: 'local-cached-id',
+        reason: expect.stringContaining('Conflicting IDs')
+      });
+    });
+
+    it('handles successful import by updating IndexedDB version', async () => {
+      await noteMetadataStore.upsert({
+        id: 'note-123',
+        version: 1,
+        path: 'success/note.md',
+        filename: 'note',
+        lastSynced: new Date()
+      });
+
+      await hook.handleImportResult({
+        results: [{
+          status: 'success',
+          note_id: 'note-123',
+          new_version: 2
+        }]
+      });
+
+      // Should update IndexedDB with new version
+      const metadata = await noteMetadataStore.getById('note-123');
+      expect(metadata?.version).toBe(2);
+    });
+
+    it('handles path_mismatch errors appropriately', async () => {
+      await hook.handleImportResult({
+        results: [{
+          status: 'error',
+          error: {
+            type: 'path_mismatch',
+            note_id: 'abc-123',
+            expected_path: 'old/path.md',
+            actual_path: 'new/path.md',
+            message: 'Path mismatch'
+          }
+        }]
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Should emit path mismatch event
+      expect(mockPushEvent).toHaveBeenCalledWith('path_mismatch', {
+        note_id: 'abc-123',
+        expected_path: 'old/path.md',
+        actual_path: 'new/path.md',
+        message: 'Path mismatch'
+      });
+    });
+
+    it('handles generic errors without crashing', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await hook.handleImportResult({
+        results: [{
+          status: 'error',
+          error: {
+            type: 'unknown_error',
+            message: 'Something went wrong'
+          }
+        }]
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Should log error
+      expect(consoleSpy).toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('processes multiple results with mixed success/error', async () => {
+      const note1Id = '33333333-3333-3333-3333-333333333333';
+      const wrongId = '44444444-4444-4444-4444-444444444444';
+      const correctId = '55555555-5555-5555-5555-555555555555';
+
+      await noteMetadataStore.upsert({
+        id: note1Id,
+        version: 1,
+        path: 'note1.md',
+        filename: 'note1',
+        lastSynced: new Date()
+      });
+
+      // Setup: directory handle for auto-fix
+      hook.directoryHandle = { name: 'test-folder' };
+      hook.getJsonHandle = vi.fn().mockResolvedValue({
+        getFile: vi.fn().mockResolvedValue({
+          text: vi.fn().mockResolvedValue(JSON.stringify({
+            _id: wrongId,
+            _schema_version: '1.0',
+            name: 'Note 2',
+            tags: [],
+            data: {}
+          }))
+        }),
+        createWritable: vi.fn().mockResolvedValue({
+          write: vi.fn(),
+          close: vi.fn()
+        })
+      });
+      hook.readNoteFiles = vi.fn().mockResolvedValue({
+        markdown: 'Content',
+        metadata: { name: 'Note 2', tags: [], data: {} },
+        version: undefined
+      });
+
+      await hook.handleImportResult({
+        results: [
+          {
+            status: 'success',
+            note_id: note1Id,
+            new_version: 2
+          },
+          {
+            status: 'error',
+            error: {
+              type: 'id_not_found',
+              provided_id: wrongId,
+              suggested_id: correctId,
+              path: 'note2.md',
+              message: 'Not found'
+            }
+          }
+        ]
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Should handle both
+      const metadata = await noteMetadataStore.getById(note1Id);
+      expect(metadata?.version).toBe(2);
+
+      // Should attempt auto-fix for error case
+      expect(mockPushEvent).toHaveBeenCalledWith('import_files', expect.objectContaining({
+        changes: expect.arrayContaining([
+          expect.objectContaining({
+            id: correctId
+          })
+        ])
+      }));
     });
   });
 });

@@ -21,7 +21,7 @@ defmodule Xeno.Content.IdResolver do
   - `{:error, NoteNotFound.t()}` with suggestion data if not found
   """
   def resolve(id, path) do
-    case Note.get(id) do
+    case Note.get(id, load: :file_path) do
       {:ok, note} ->
         verify_path_matches(note, path)
 
@@ -35,8 +35,6 @@ defmodule Xeno.Content.IdResolver do
   end
 
   defp verify_path_matches(note, path) when is_binary(path) do
-    note = Ash.load!(note, :file_path)
-
     if note.file_path == path do
       {:ok, note}
     else

@@ -122,6 +122,143 @@
         </div>
       </div>
     <% end %>
+    <%!-- ID Conflict Resolution Dialog --%>
+    <%= if @id_conflict do %>
+      <div
+        id="conflict-dialog"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        phx-click="cancel_conflict"
+      >
+        <div
+          class="bg-base-100 rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6"
+          phx-click="stop_propagation"
+        >
+          <h3 class="text-2xl font-bold mb-4 text-error">
+            <span class="hero-exclamation-triangle inline-block w-6 h-6 mr-2"></span>
+            Note ID Conflict Detected
+          </h3>
+
+          <div class="alert alert-warning mb-6">
+            <span class="hero-information-circle w-5 h-5"></span>
+            <div>
+              <p class="font-semibold">The note has conflicting IDs</p>
+              <p class="text-sm">
+                Please choose which ID to use. The file will be updated automatically.
+              </p>
+            </div>
+          </div>
+
+          <div class="mb-6">
+            <p class="text-sm opacity-70 mb-2">
+              <strong>File:</strong>
+              <code class="bg-base-200 px-2 py-1 rounded">{@id_conflict.path}</code>
+            </p>
+            <%= if @id_conflict.reason do %>
+              <p class="text-sm opacity-70">
+                <strong>Reason:</strong>
+                {@id_conflict.reason}
+              </p>
+            <% end %>
+          </div>
+
+          <div class="space-y-3 mb-8">
+            <%!-- Server ID Option --%>
+            <div class="card bg-primary/10 border-2 border-primary hover:bg-primary/20 cursor-pointer transition">
+              <div class="card-body p-4">
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-2">
+                      <span class="badge badge-primary">Recommended</span>
+                      <h4 class="font-semibold">Server ID</h4>
+                    </div>
+                    <code class="text-sm block bg-base-200 px-2 py-1 rounded mb-2 font-mono">
+                      {@id_conflict.server_id}
+                    </code>
+                    <p class="text-xs opacity-70">
+                      ID found in the database at this path. This is usually the correct choice.
+                    </p>
+                  </div>
+                  <button
+                    id="choose-server-btn"
+                    phx-click="resolve_conflict"
+                    phx-value-choice="server"
+                    class="btn btn-primary btn-sm"
+                  >
+                    Use This
+                  </button>
+                </div>
+              </div>
+            </div>
+            <%!-- Local Cache ID Option --%>
+            <%= if @id_conflict.local_id do %>
+              <div class="card bg-base-200 border-2 border-base-300 hover:bg-base-300 cursor-pointer transition">
+                <div class="card-body p-4">
+                  <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2 mb-2">
+                        <span class="badge badge-neutral">Local Cache</span>
+                        <h4 class="font-semibold">Browser Cache ID</h4>
+                      </div>
+                      <code class="text-sm block bg-base-100 px-2 py-1 rounded mb-2 font-mono">
+                        {@id_conflict.local_id}
+                      </code>
+                      <p class="text-xs opacity-70">
+                        ID stored in your browser's local cache from previous imports.
+                      </p>
+                    </div>
+                    <button
+                      id="choose-local-btn"
+                      phx-click="resolve_conflict"
+                      phx-value-choice="local"
+                      class="btn btn-neutral btn-sm"
+                    >
+                      Use This
+                    </button>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+            <%!-- JSON File ID Option --%>
+            <div class="card bg-base-200 border-2 border-base-300 hover:bg-base-300 cursor-pointer transition">
+              <div class="card-body p-4">
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-2">
+                      <span class="badge badge-neutral">Current File</span>
+                      <h4 class="font-semibold">JSON File ID</h4>
+                    </div>
+                    <code class="text-sm block bg-base-100 px-2 py-1 rounded mb-2 font-mono">
+                      {@id_conflict.json_id}
+                    </code>
+                    <p class="text-xs opacity-70">
+                      ID currently in the JSON file. May contain a typo or be outdated.
+                    </p>
+                  </div>
+                  <button
+                    id="choose-json-btn"
+                    phx-click="resolve_conflict"
+                    phx-value-choice="json"
+                    class="btn btn-neutral btn-sm"
+                  >
+                    Use This
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <button
+              id="cancel-conflict-btn"
+              phx-click="cancel_conflict"
+              class="btn btn-ghost"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
 
     <div class="card bg-base-200 mb-6">
       <div class="card-body">
