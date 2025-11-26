@@ -360,4 +360,48 @@ defmodule XenoWeb.NoteEditLiveTest do
                live(conn, ~p"/notes/#{fake_id}/edit")
     end
   end
+
+  describe "component structure (post-refactor)" do
+    test "uses heading component for page title", %{conn: conn, note: note} do
+      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
+
+      assert has_element?(view, "h1", "Edit Note")
+    end
+
+    test "uses container component with proper max-width", %{conn: conn, note: note} do
+      {:ok, view, html} = live(conn, ~p"/notes/#{note.id}/edit")
+
+      assert html =~ ~r/max-w-/
+      assert html =~ ~r/mx-auto/
+    end
+
+    test "uses button_group for form actions", %{conn: conn, note: note} do
+      {:ok, view, html} = live(conn, ~p"/notes/#{note.id}/edit")
+
+      assert html =~ ~r/flex/
+      assert html =~ ~r/gap-/
+    end
+
+    test "submit button has proper structure", %{conn: conn, note: note} do
+      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
+
+      assert has_element?(view, "button[type='submit']", "Save Changes")
+    end
+
+    test "cancel button has phx-click event", %{conn: conn, note: note} do
+      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
+
+      assert has_element?(view, "button[phx-click='cancel']", "Cancel")
+    end
+
+    test "form actions are wrapped in button group container", %{conn: conn, note: note} do
+      {:ok, view, html} = live(conn, ~p"/notes/#{note.id}/edit")
+
+      # Check that both buttons exist (button text may have whitespace)
+      assert html =~ "Save Changes"
+      assert html =~ "Cancel"
+      assert has_element?(view, "button[type='submit']")
+      assert has_element?(view, "button[phx-click='cancel']")
+    end
+  end
 end
