@@ -458,6 +458,80 @@ Make a plan in a TDD style, lets keep it modular and maintainable.
 Update @planning/metadata_architecture.md to reflect the current
 state of development
 
+🔄 Complete Flow (Frontend → Backend → Frontend)
+
+1. Frontend: Auto-fix detects conflict
+   ↓
+2. Frontend: Emits "id_conflict" event to backend
+   ↓
+3. Backend: Stores conflict in socket state
+   ↓
+4. Backend: (Future) Renders conflict dialog UI
+   ↓
+5. User: Chooses which ID to use
+   ↓
+6. Frontend: Emits "resolve_conflict" with choice
+   ↓
+7. Backend: Emits "resolve_conflict" back to frontend
+   ↓
+8. Frontend: FileSystemHook applies chosen ID
+   ↓
+9. Frontend: Retries import with corrected ID
+   ↓
+10. Success! ✅
+
+📋 Event Communication Diagram
+Frontend (FileSystemHook)          Backend (SyncLive)
+─────────────────────────          ──────────────────
+
+import_files ──────────────────→   handle_event("import_files")
+                                         ↓
+                                    Process imports
+                                         ↓
+                                    Detect id_not_found error
+                                         ↓
+                 ←───────────────── push_event("import_result")
+      ↓
+Auto-fix handler runs
+      ↓
+Check: Server + IndexedDB agree?
+      ├─ Yes: Auto-fix ✅
+      └─ No: Conflict ⚠️
+           ↓
+id_conflict ─────────────────────→  handle_event("id_conflict")
+                                          ↓
+                                     Store conflict in state
+                                          ↓
+                                     [User sees UI dialog]
+                                          ↓
+                                     User clicks "Use Server ID"
+                                          ↓
+resolve_conflict ────────────────→  handle_event("resolve_conflict")
+                                          ↓
+                 ←────────────────── push_event("resolve_conflict")
+      ↓
+Apply chosen ID
+      ↓
+Retry import ─────────────────────→
+                                         ↓
+                 ←────────────────── Success! ✅
+
+---
+
+Read the documents
+
+@planning/editor_integration_implementation.md
+@planning/metadata_architecture.md
+
+We've been working on editor integration but took a detour to
+revisit the metadata handling for the filesystem integration.
+
+Analyse and understand the current state of the implementation.
+
+What are the next steps in the development?
+
+Make a plan in a TDD style, lets keep it modular and maintainable.
+
 ---
 
 @planning/metadata_architecture.md
@@ -554,6 +628,7 @@ We will work on these step-by-step when the time is ready.
 
 Sync.TreeBuilder.note_file_path should become a calculation on Note.
 The different extensions .md .json need graceful handling.
+Done [x]
 
 Sync.Exporter.to_json_metadata could also become a calculation.
 Notes in json format might be needed in other features as well.
@@ -594,3 +669,10 @@ But still: Add a dedicated action to update notes from fs sync.
 Add a script to run elixir and js tests
 
 Update @AGENTS.md with information about TypeScript testing.
+
+Why are name, tags, data arguments for import_from_filesystem and update_from_fs
+and not accepts?
+
+The console output in file_system_hook should only be displayed when
+MIX_ENV is "dev". For that we need to find out how to access MIX_ENV
+from javascript.
