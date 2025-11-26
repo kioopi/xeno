@@ -87,6 +87,10 @@ defmodule XenoWeb do
       # Core UI components
       import XenoWeb.CoreComponents
 
+      # Layout and UI component library
+      import XenoWeb.Components.Layout
+      import XenoWeb.Components.UI
+
       # Common modules used in templates
       alias Phoenix.LiveView.JS
       alias XenoWeb.Layouts
