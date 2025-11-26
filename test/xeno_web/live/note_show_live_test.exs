@@ -86,7 +86,9 @@ defmodule XenoWeb.NoteShowLiveTest do
     test "shows Edit button", %{conn: conn, note: note} do
       {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}")
 
-      assert has_element?(view, "button", "Edit")
+      # Button is now a wa-button web component
+      assert render(view) =~ "Edit"
+      assert has_element?(view, "wa-button#edit-btn", "Edit")
     end
 
     test "redirects when note not found", %{conn: conn} do
@@ -107,12 +109,74 @@ defmodule XenoWeb.NoteShowLiveTest do
     end
   end
 
+  describe "component structure" do
+    test "uses proper heading hierarchy (h1 for title, h2 for sections)", %{
+      conn: conn,
+      note: note
+    } do
+      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}")
+
+      html = render(view)
+      # Title should be h1
+      assert has_element?(view, "h1", note.name)
+      # Section headings should be h2 (wrapped in card header slots)
+      assert html =~ "Content"
+      assert html =~ "Data"
+      # Verify h2 tags exist (they're in slot="header" divs)
+      assert html =~ ~r/<h2[^>]*>\s*Content\s*<\/h2>/
+      assert html =~ ~r/<h2[^>]*>\s*Data\s*<\/h2>/
+    end
+
+    test "edit button auto-generates test ID from phx-click", %{conn: conn, note: note} do
+      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}")
+
+      # Button with phx-click="edit" should have id="edit-btn"
+      assert has_element?(view, "wa-button#edit-btn", "Edit")
+    end
+
+    test "uses wa-tag components for tag rendering", %{conn: conn, note: note} do
+      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}")
+
+      html = render(view)
+      # Should use wa-tag web components
+      assert html =~ "<wa-tag"
+      assert html =~ "test"
+      assert html =~ "example"
+    end
+
+    test "wraps content sections in wa-card components", %{conn: conn, note: note} do
+      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}")
+
+      html = render(view)
+      # Should use wa-card web components
+      assert html =~ "<wa-card"
+    end
+
+    test "uses code blocks for formatted content", %{conn: conn, note: note} do
+      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}")
+
+      html = render(view)
+      # Code blocks should still use pre/code for content
+      assert html =~ "<pre"
+      assert html =~ "<code"
+      assert html =~ "Test content here"
+    end
+
+    test "uses stack component for vertical spacing", %{conn: conn, note: note} do
+      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}")
+
+      html = render(view)
+      # Should use wa-stack for layout
+      assert html =~ "wa-stack"
+    end
+  end
+
   describe "navigation" do
     test "clicking Edit button navigates to edit page", %{conn: conn, note: note} do
       {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}")
 
       view
-      |> element("button", "Edit")
+      |> element("wa-button#edit-btn")
       |> render_click()
 
       assert_redirect(view, ~p"/notes/#{note.id}/edit")

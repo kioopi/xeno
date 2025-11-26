@@ -23,7 +23,7 @@ defmodule XenoWeb.Components.UI do
   def heading(assigns) do
     ~H"""
     <.dynamic_tag tag_name={"h#{@level}"} class={[heading_classes(@level), @class]} {@rest}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </.dynamic_tag>
     """
   end
@@ -119,7 +119,7 @@ defmodule XenoWeb.Components.UI do
       <%= if @loading do %>
         <wa-spinner slot="prefix" />
       <% end %>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </wa-button>
     """
   end
@@ -162,7 +162,7 @@ defmodule XenoWeb.Components.UI do
       class={@class}
       {@rest}
     >
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </wa-tag>
     """
   end
@@ -257,35 +257,35 @@ defmodule XenoWeb.Components.UI do
     ~H"""
     <wa-card class={@class} {@rest}>
       <%= if @header != [] do %>
-        <%= render_slot(@header) %>
+        {render_slot(@header)}
       <% else %>
         <%= if @title || @subtitle do %>
           <div slot="header">
             <%= if @title do %>
               <%= if @level do %>
-                <.heading level={@level}><%= @title %></.heading>
+                <.heading level={@level}>{@title}</.heading>
               <% else %>
-                <div class="font-semibold text-lg"><%= @title %></div>
+                <div class="font-semibold text-lg">{@title}</div>
               <% end %>
             <% end %>
             <%= if @subtitle do %>
-              <div class="text-sm opacity-70"><%= @subtitle %></div>
+              <div class="text-sm opacity-70">{@subtitle}</div>
             <% end %>
           </div>
         <% end %>
       <% end %>
 
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
 
       <%= if @actions != [] do %>
         <div slot="footer">
-          <%= render_slot(@actions) %>
+          {render_slot(@actions)}
         </div>
       <% end %>
 
       <%= if @footer != [] do %>
         <div slot="footer">
-          <%= render_slot(@footer) %>
+          {render_slot(@footer)}
         </div>
       <% end %>
     </wa-card>
@@ -328,9 +328,9 @@ defmodule XenoWeb.Components.UI do
     ~H"""
     <wa-callout variant={@variant} closable={@closable && true} class={@class} {@rest}>
       <%= if @icon != [] do %>
-        <%= render_slot(@icon) %>
+        {render_slot(@icon)}
       <% end %>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </wa-callout>
     """
   end
@@ -362,14 +362,14 @@ defmodule XenoWeb.Components.UI do
     ~H"""
     <div class={["flex items-start justify-between gap-4 mb-6", @class]} {@rest}>
       <div class="flex-1">
-        <.heading level={@level}><%= @title %></.heading>
+        <.heading level={@level}>{@title}</.heading>
         <%= if @subtitle do %>
-          <p class="text-sm opacity-70 mt-2"><%= @subtitle %></p>
+          <p class="text-sm opacity-70 mt-2">{@subtitle}</p>
         <% end %>
       </div>
       <%= if @actions != [] do %>
         <div class="flex gap-2 shrink-0">
-          <%= render_slot(@actions) %>
+          {render_slot(@actions)}
         </div>
       <% end %>
     </div>
@@ -399,7 +399,7 @@ defmodule XenoWeb.Components.UI do
   def button_group(assigns) do
     ~H"""
     <div class={["flex", button_group_gap(@gap), @class]} {@rest}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -432,7 +432,7 @@ defmodule XenoWeb.Components.UI do
     ~H"""
     <div class={["flex flex-wrap gap-2", @class]} {@rest}>
       <%= for tag <- @tags do %>
-        <.badge variant={@variant}><%= tag %></.badge>
+        <.badge variant={@variant}>{tag}</.badge>
       <% end %>
     </div>
     """

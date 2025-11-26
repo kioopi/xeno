@@ -1,52 +1,29 @@
 <Layouts.app flash={@flash}>
-  <div class="max-w-4xl mx-auto">
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">{@note.name}</h1>
-        <p class="text-sm opacity-70 mt-1">
-          Type: {@note.note_type.name} ·
-          Directory: {@note.directory.path} ·
-          Version: {@note.version}
-        </p>
-      </div>
-      <button phx-click="edit" class="btn btn-primary">
-        Edit
-      </button>
-    </div>
+  <.container max_width={:xl}>
+    <.stack gap={:xl}>
+      <.page_header
+        title={@note.name}
+        subtitle={"Type: #{@note.note_type.name} · Directory: #{@note.directory.path} · Version: #{@note.version}"}
+      >
+        <:actions>
+          <.button phx-click="edit" variant={:primary}>Edit</.button>
+        </:actions>
+      </.page_header>
 
-    <%= if @note.tags && @note.tags != [] do %>
-      <div class="mb-6 flex flex-wrap gap-2">
-        <span :for={tag <- @note.tags} class="badge badge-primary">
-          {tag}
-        </span>
-      </div>
-    <% end %>
+      <.tag_list :if={@note.tags} tags={@note.tags} variant={:primary} />
 
-    <%= if @note.text do %>
-      <div class="mb-8">
-        <h2 class="text-xl font-semibold mb-4">Content</h2>
-        <div class="card bg-base-200">
-          <div class="card-body">
-            <pre class="whitespace-pre-wrap font-mono text-sm">{@note.text}</pre>
-          </div>
-        </div>
-      </div>
-    <% end %>
+      <.card :if={@note.text} level={2} title="Content">
+        <.code_block content={@note.text} />
+      </.card>
 
-    <%= if @note.data && @note.data != %{} do %>
-      <div class="mb-8">
-        <h2 class="text-xl font-semibold mb-4">Data</h2>
-        <div class="card bg-base-200">
-          <div class="card-body">
-            <pre class="whitespace-pre-wrap font-mono text-sm">{Jason.encode!(@note.data, pretty: true)}</pre>
-          </div>
-        </div>
-      </div>
-    <% end %>
+      <.card :if={@note.data && @note.data != %{}} level={2} title="Data">
+        <.code_block content={Jason.encode!(@note.data, pretty: true)} language="json" />
+      </.card>
 
-    <div class="text-xs opacity-60 mt-8">
-      <p>Created: {Calendar.strftime(@note.inserted_at, "%Y-%m-%d %H:%M:%S")}</p>
-      <p>Updated: {Calendar.strftime(@note.updated_at, "%Y-%m-%d %H:%M:%S")}</p>
-    </div>
-  </div>
+      <div class="text-xs opacity-60">
+        <p>Created: {Calendar.strftime(@note.inserted_at, "%Y-%m-%d %H:%M:%S")}</p>
+        <p>Updated: {Calendar.strftime(@note.updated_at, "%Y-%m-%d %H:%M:%S")}</p>
+      </div>
+    </.stack>
+  </.container>
 </Layouts.app>
