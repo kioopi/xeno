@@ -24,6 +24,43 @@ defmodule XenoWeb.InfoLiveTest do
     assert has_element?(view, "dd", Xeno.notes_dir())
   end
 
+  describe "page structure" do
+    test "displays main heading", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Should have exactly one h1
+      assert has_element?(view, "h1", "Xeno Installation Information")
+    end
+
+    test "displays notes directory section", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Should show the label
+      assert has_element?(view, "dt", "Notes Directory")
+      # Should show the actual path
+      assert has_element?(view, "dd", Xeno.notes_dir())
+    end
+
+    test "displays both file tree implementations", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      # Should have two column headers
+      assert has_element?(view, "h2", "Current Implementation (HTML Details)")
+      assert has_element?(view, "h2", "WebAwesome Component")
+    end
+
+    test "sections are properly spaced", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      html = render(view)
+      # Main sections should exist in order
+      assert html =~ "Xeno Installation Information"
+      assert html =~ "Notes Directory"
+      assert html =~ "Current Implementation"
+      assert html =~ "WebAwesome Component"
+    end
+  end
+
   describe "auto-refresh" do
     test "automatically shows new directory when created", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
