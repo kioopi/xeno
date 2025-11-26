@@ -28,9 +28,8 @@ defmodule XenoWeb.NoteShowLive do
     end
   end
 
-
   @impl true
-  def handle_info(%{topic: "note:updated:" <> _, payload: %{ id: id }}, socket) do
+  def handle_info(%{topic: "note:updated:" <> _, payload: %{id: id}}, socket) do
     note = Note.get!(id, load: [:directory, :note_type])
 
     {:noreply, assign(socket, note: note, page_title: note.name)}

@@ -55,9 +55,12 @@ defmodule Xeno.Content.NotePubSubTest do
 
     {:ok, _updated} = Note.update(note, %{text: "Updated"})
 
-    assert_receive(%Phoenix.Socket.Broadcast{
-      topic: "note:updated:" <> _
-    }, 1000)
+    assert_receive(
+      %Phoenix.Socket.Broadcast{
+        topic: "note:updated:" <> _
+      },
+      1000
+    )
   end
 
   test "broadcasts on note destruction", %{directory: dir, note_type: type} do

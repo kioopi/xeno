@@ -308,7 +308,7 @@ defmodule Xeno.Content.NoteTest do
       {:ok, dir: dir, note_type: note_type, note: note}
     end
 
-    test "updates a note", %{ note: note } do
+    test "updates a note", %{note: note} do
       params = %{
         id: note.id,
         path: "foo/bar/note",
@@ -328,12 +328,13 @@ defmodule Xeno.Content.NoteTest do
       assert updated = Note.update!(note, %{text: "Update A"})
       assert updated.version == 2
 
-      assert {:error, error} = Note.import_from_filesystem(%{
-        id: note.id,
-        path: "foo/bar/note",
-        markdown_content: "the new text",
-        version: 1
-      })
+      assert {:error, error} =
+               Note.import_from_filesystem(%{
+                 id: note.id,
+                 path: "foo/bar/note",
+                 markdown_content: "the new text",
+                 version: 1
+               })
 
       assert Exception.message(error) =~ "stale"
     end

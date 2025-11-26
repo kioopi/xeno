@@ -61,7 +61,10 @@ defmodule XenoWeb.Components.LayoutTest do
 
       html =
         rendered_to_string(~H"""
-        <Layout.stack><div>Item 1</div><div>Item 2</div></Layout.stack>
+        <Layout.stack>
+          <div>Item 1</div>
+          <div>Item 2</div>
+        </Layout.stack>
         """)
 
       assert html =~ ~r/wa-stack/

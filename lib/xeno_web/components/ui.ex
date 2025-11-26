@@ -368,7 +368,7 @@ defmodule XenoWeb.Components.UI do
         <% end %>
       </div>
       <%= if @actions != [] do %>
-        <div class="flex gap-2 flex-shrink-0">
+        <div class="flex gap-2 shrink-0">
           <%= render_slot(@actions) %>
         </div>
       <% end %>
@@ -466,4 +466,3 @@ defmodule XenoWeb.Components.UI do
     """
   end
 end
-

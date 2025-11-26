@@ -34,7 +34,10 @@ defmodule Xeno.Content.Preparations.ParseFilePath do
         end)
 
       {:error, :invalid_path} ->
-        Ash.Query.add_error(query, "Invalid file path format. Expected 'directory/path/filename'.")
+        Ash.Query.add_error(
+          query,
+          "Invalid file path format. Expected 'directory/path/filename'."
+        )
     end
   end
 

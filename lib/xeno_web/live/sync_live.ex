@@ -284,9 +284,17 @@ defmodule XenoWeb.SyncLive do
 
     socket =
       if error_count == 0 do
-        put_flash(socket, :info, "Successfully imported #{success_count} note(s) in #{duration_text}")
+        put_flash(
+          socket,
+          :info,
+          "Successfully imported #{success_count} note(s) in #{duration_text}"
+        )
       else
-        put_flash(socket, :info, "Imported #{success_count}, failed #{error_count} in #{duration_text}")
+        put_flash(
+          socket,
+          :info,
+          "Imported #{success_count}, failed #{error_count} in #{duration_text}"
+        )
       end
 
     {:noreply, socket}

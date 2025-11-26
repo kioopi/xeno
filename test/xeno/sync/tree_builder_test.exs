@@ -36,14 +36,15 @@ defmodule Xeno.Sync.TreeBuilderTest do
       directory = generate(directory(path: "projects"))
       note_type = generate(note_type(name: "Note"))
 
-      note = generate(
-        note(
-          name: "Architecture",
-          filename: "architecture",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      note =
+        generate(
+          note(
+            name: "Architecture",
+            filename: "architecture",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       note = Ash.get!(Xeno.Content.Note, note.id, load: [:file_path])
 
@@ -56,14 +57,15 @@ defmodule Xeno.Sync.TreeBuilderTest do
       directory = generate(directory(path: "work/docs"))
       note_type = generate(note_type(name: "Note"))
 
-      note = generate(
-        note(
-          name: "Meeting Notes",
-          filename: "meeting_notes",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      note =
+        generate(
+          note(
+            name: "Meeting Notes",
+            filename: "meeting_notes",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       note = Ash.get!(Xeno.Content.Note, note.id, load: [:file_path])
 
@@ -76,14 +78,15 @@ defmodule Xeno.Sync.TreeBuilderTest do
       directory = generate(directory(path: "notes"))
       note_type = generate(note_type(name: "Note"))
 
-      note = generate(
-        note(
-          name: "Test",
-          filename: "test",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      note =
+        generate(
+          note(
+            name: "Test",
+            filename: "test",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       note = Ash.get!(Xeno.Content.Note, note.id, load: [:file_path])
 
@@ -98,13 +101,14 @@ defmodule Xeno.Sync.TreeBuilderTest do
       directory = generate(directory(path: "test"))
       note_type = generate(note_type(name: "Note"))
 
-      note = generate(
-        note(
-          name: "Test Note",
-          directory_id: directory.id,
-          note_type_id: note_type.id
+      note =
+        generate(
+          note(
+            name: "Test Note",
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       result = TreeBuilder.build_sync_tree()
 
@@ -117,31 +121,33 @@ defmodule Xeno.Sync.TreeBuilderTest do
       dir2 = generate(directory(path: "personal"))
       note_type = generate(note_type(name: "Note"))
 
-      note1 = generate(
-        note(
-          name: "Project Note",
-          filename: "project_note",
-          directory_id: dir1.id,
-          note_type_id: note_type.id
+      note1 =
+        generate(
+          note(
+            name: "Project Note",
+            filename: "project_note",
+            directory_id: dir1.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
-      note2 = generate(
-        note(
-          name: "Personal Note",
-          filename: "personal_note",
-          directory_id: dir2.id,
-          note_type_id: note_type.id
+      note2 =
+        generate(
+          note(
+            name: "Personal Note",
+            filename: "personal_note",
+            directory_id: dir2.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       result = TreeBuilder.build_sync_tree()
 
       assert {_note, "projects/project_note"} =
-        Enum.find(result, fn {n, _} -> n.id == note1.id end)
+               Enum.find(result, fn {n, _} -> n.id == note1.id end)
 
       assert {_note, "personal/personal_note"} =
-        Enum.find(result, fn {n, _} -> n.id == note2.id end)
+               Enum.find(result, fn {n, _} -> n.id == note2.id end)
     end
 
     test "handles notes in nested directories" do
@@ -149,19 +155,20 @@ defmodule Xeno.Sync.TreeBuilderTest do
       nested_dir = generate(directory(path: "work/projects"))
       note_type = generate(note_type(name: "Note"))
 
-      note = generate(
-        note(
-          name: "Nested Note",
-          filename: "nested",
-          directory_id: nested_dir.id,
-          note_type_id: note_type.id
+      note =
+        generate(
+          note(
+            name: "Nested Note",
+            filename: "nested",
+            directory_id: nested_dir.id,
+            note_type_id: note_type.id
+          )
         )
-      )
 
       result = TreeBuilder.build_sync_tree()
 
       assert {_note, "work/projects/nested"} =
-        Enum.find(result, fn {n, _} -> n.id == note.id end)
+               Enum.find(result, fn {n, _} -> n.id == note.id end)
     end
 
     test "returns empty list when no notes exist" do

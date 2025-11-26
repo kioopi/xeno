@@ -114,8 +114,7 @@
             >
               <%= cond do %>
                 <% @sync_status == :exporting -> %>
-                  <span class="loading loading-spinner loading-sm"></span>
-                  Exporting...
+                  <span class="loading loading-spinner loading-sm"></span> Exporting...
                 <% match?({:exporting, _, _}, @sync_status) -> %>
                   <% {_, current, total} = @sync_status %>
                   <span class="loading loading-spinner loading-sm"></span>
@@ -136,8 +135,7 @@
             >
               <%= cond do %>
                 <% @import_status == :scanning -> %>
-                  <span class="loading loading-spinner loading-sm"></span>
-                  Scanning...
+                  <span class="loading loading-spinner loading-sm"></span> Scanning...
                 <% match?({:importing, _, _}, @import_status) -> %>
                   <% {_, current, total} = @import_status %>
                   <span class="loading loading-spinner loading-sm"></span>
@@ -232,18 +230,21 @@
                 />
               </svg>
               <span>
-                Last <%= if @last_operation.type == :export, do: "export", else: "import" %>:
-                <%= @last_operation.count %> note(s)
+                Last {if @last_operation.type == :export, do: "export", else: "import"}: {@last_operation.count} note(s)
                 <%= if @last_operation.type == :import && @last_operation.failed > 0 do %>
-                  (<%= @last_operation.failed %> failed)
+                  ({@last_operation.failed} failed)
                 <% end %>
-                in <%= cond do %>
+                in
+                <%= cond do %>
                   <% @last_operation.duration < 1000 -> %>
-                    <%= @last_operation.duration %>ms
+                    {@last_operation.duration}ms
                   <% @last_operation.duration < 60_000 -> %>
-                    <%= Float.round(@last_operation.duration / 1000, 1) %>s
+                    {Float.round(@last_operation.duration / 1000, 1)}s
                   <% true -> %>
-                    <%= div(@last_operation.duration, 60_000) %>m <%= div(rem(@last_operation.duration, 60_000), 1000) %>s
+                    {div(@last_operation.duration, 60_000)}m {div(
+                      rem(@last_operation.duration, 60_000),
+                      1000
+                    )}s
                 <% end %>
                 • {Calendar.strftime(@last_operation.timestamp, "%H:%M:%S")}
               </span>
@@ -295,7 +296,10 @@
           </button>
         </div>
 
-        <div :for={{error, idx} <- Enum.with_index(@sync_errors)} class="alert shadow-lg transition-all duration-200 hover:shadow-xl">
+        <div
+          :for={{error, idx} <- Enum.with_index(@sync_errors)}
+          class="alert shadow-lg transition-all duration-200 hover:shadow-xl"
+        >
           <%!-- Icon based on error type --%>
           <%= cond do %>
             <% error["type"] == "id_not_found" -> %>

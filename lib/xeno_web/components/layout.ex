@@ -36,7 +36,7 @@ defmodule XenoWeb.Components.Layout do
       "mx-auto px-4 py-8",
       @class
     ]}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -66,7 +66,7 @@ defmodule XenoWeb.Components.Layout do
   def stack(assigns) do
     ~H"""
     <div class={["wa-stack", "wa-gap-#{@gap}", @class]}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -93,8 +93,11 @@ defmodule XenoWeb.Components.Layout do
 
   def grid(assigns) do
     ~H"""
-    <div class={["wa-grid", "wa-gap-#{@gap}", @class]} style={"--min-column-size: #{@min_column_size}"}>
-      <%= render_slot(@inner_block) %>
+    <div
+      class={["wa-grid", "wa-gap-#{@gap}", @class]}
+      style={"--min-column-size: #{@min_column_size}"}
+    >
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -127,7 +130,7 @@ defmodule XenoWeb.Components.Layout do
       "wa-gap-#{@gap}",
       @class
     ]}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -154,7 +157,7 @@ defmodule XenoWeb.Components.Layout do
   def flank(assigns) do
     ~H"""
     <div class={["wa-flank", "wa-gap-#{@gap}", @class]}>
-      <%= render_slot(@inner_block) %>
+      {render_slot(@inner_block)}
     </div>
     """
   end

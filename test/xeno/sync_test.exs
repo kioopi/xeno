@@ -37,7 +37,7 @@ defmodule Xeno.SyncTest do
       result = Sync.export_all()
 
       assert {_note, "test_sync/test_note"} =
-        Enum.find(result, fn {n, _} -> n.id == note.id end)
+               Enum.find(result, fn {n, _} -> n.id == note.id end)
     end
 
     test "returns empty list when no notes exist" do
@@ -110,7 +110,11 @@ defmodule Xeno.SyncTest do
   end
 
   describe "import_changes/1" do
-    test "processes batch of changes successfully", %{note: note, directory: directory, note_type: note_type} do
+    test "processes batch of changes successfully", %{
+      note: note,
+      directory: directory,
+      note_type: note_type
+    } do
       {:ok, note2} =
         Xeno.Content.Note.create(%{
           name: "Second Note",
@@ -161,7 +165,11 @@ defmodule Xeno.SyncTest do
       assert length(result.errors) == 1
     end
 
-    test "continues processing after individual failures", %{note: note, directory: directory, note_type: note_type} do
+    test "continues processing after individual failures", %{
+      note: note,
+      directory: directory,
+      note_type: note_type
+    } do
       original_version = note.version
       Xeno.Content.Note.update!(note, %{text: "Concurrent edit"})
 

@@ -8,14 +8,15 @@ defmodule Xeno.Sync.ExporterTest do
   setup do
     directory = generate(directory(path: "projects/web_app"))
 
-    note_type = generate(
-      note_type(
-        name: "Technical Note",
-        initial_text: "# Template",
-        initial_data: %{"category" => "tech"},
-        initial_tags: ["engineering"]
+    note_type =
+      generate(
+        note_type(
+          name: "Technical Note",
+          initial_text: "# Template",
+          initial_data: %{"category" => "tech"},
+          initial_tags: ["engineering"]
+        )
       )
-    )
 
     {:ok, note} =
       Xeno.Content.Note.create(%{
