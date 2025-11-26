@@ -11,6 +11,19 @@ To start your Phoenix server:
 
 Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
 
+## Features
+
+### File System Sync
+
+Edit your notes in external editors like VS Code, Vim, or any text editor of your choice. Changes are automatically synced back to the database.
+
+* **Manual Export/Import**: Export notes to a local folder and import changes with a click
+* **Auto-Sync**: Automatically import changes when you save files (Chrome 129+/Edge 129+)
+* **Conflict Resolution**: Optimistic locking prevents accidental overwrites
+* **Persistent Connection**: Your selected folder is remembered across browser sessions
+
+See [`docs/filesystem-sync.md`](docs/filesystem-sync.md) for complete documentation, browser compatibility, and usage instructions.
+
 ## Development Workflow
 
 ### Starting the Server
