@@ -91,14 +91,26 @@ defmodule XenoWeb.Components.UI do
       <.button phx-click="save">Save</.button>
 
       <.button loading>Processing...</.button>
+
+      <.button loading loading_text="Exporting...">Export</.button>
+
+      <.button loading>
+        Export
+        <:loading_content>
+          <.spinner size={:sm} />
+          Exporting {@current}/{@total}
+        </:loading_content>
+      </.button>
   """
   attr :variant, :atom, default: :primary, values: [:primary, :secondary, :ghost, :soft]
   attr :size, :atom, default: :md, values: [:sm, :md, :lg]
   attr :loading, :boolean, default: false
+  attr :loading_text, :string, default: nil
   attr :disabled, :boolean, default: false
   attr :class, :string, default: nil
   attr :rest, :global, include: ~w(phx-click phx-value-id id)
   slot :inner_block, required: true
+  slot :loading_content, doc: "Custom content shown when loading (overrides spinner + text)"
 
   def button(assigns) do
     assigns =
@@ -116,10 +128,18 @@ defmodule XenoWeb.Components.UI do
       class={@class}
       {@rest}
     >
-      <%= if @loading do %>
-        <wa-spinner slot="prefix" />
+      <%= cond do %>
+        <% @loading && @loading_content != [] -> %>
+          {render_slot(@loading_content)}
+        <% @loading && @loading_text -> %>
+          <wa-spinner slot="prefix" />
+          {@loading_text}
+        <% @loading -> %>
+          <wa-spinner slot="prefix" />
+          {render_slot(@inner_block)}
+        <% true -> %>
+          {render_slot(@inner_block)}
       <% end %>
-      {render_slot(@inner_block)}
     </wa-button>
     """
   end
@@ -329,11 +349,21 @@ defmodule XenoWeb.Components.UI do
     <wa-callout variant={@variant} closable={@closable && true} class={@class} {@rest}>
       <%= if @icon != [] do %>
         {render_slot(@icon)}
+      <% else %>
+        <%= if icon_name = default_alert_icon(@variant) do %>
+          <.icon name={icon_name} slot="icon" />
+        <% end %>
       <% end %>
       {render_slot(@inner_block)}
     </wa-callout>
     """
   end
+
+  defp default_alert_icon(:info), do: "circle-info"
+  defp default_alert_icon(:success), do: "check-circle"
+  defp default_alert_icon(:warning), do: "exclamation-triangle"
+  defp default_alert_icon(:danger), do: "xmark-circle"
+  defp default_alert_icon(:brand), do: nil
 
   @doc """
   Page header component with title, subtitle, and actions.
@@ -463,6 +493,66 @@ defmodule XenoWeb.Components.UI do
         </code>
       </pre>
     </wa-card>
+    """
+  end
+
+  @doc """
+  Dialog overlay for focused interactions.
+
+  ## Examples
+
+      <.modal open={@show_modal} title="Confirm Action">
+        Are you sure you want to proceed?
+
+        <:actions>
+          <.button phx-click="confirm" variant={:primary}>
+            Confirm
+          </.button>
+          <.button phx-click="cancel" variant={:ghost}>
+            Cancel
+          </.button>
+        </:actions>
+      </.modal>
+
+      <.modal open={@show_dialog} title="Notice" size={:sm}>
+        This is a smaller modal.
+      </.modal>
+  """
+  attr :open, :boolean, default: false
+  attr :title, :string, required: true
+  attr :size, :atom, default: :md, values: [:sm, :md, :lg, :xl]
+  attr :class, :string, default: nil
+  attr :rest, :global, include: ~w(phx-click)
+  slot :inner_block, required: true
+  slot :actions, doc: "Action buttons in footer"
+
+  def modal(assigns) do
+    width =
+      case assigns.size do
+        :sm -> "40vw"
+        :md -> "60vw"
+        :lg -> "80vw"
+        :xl -> "90vw"
+      end
+
+    assigns = assign(assigns, :width, width)
+
+    ~H"""
+    <wa-dialog
+      open={@open && true}
+      label={@title}
+      style={"--width: #{@width}"}
+      class={@class}
+      {@rest}
+    >
+      {render_slot(@inner_block)}
+
+      <%= if @actions != [] do %>
+        <div slot="footer">
+          {render_slot(@actions)}
+        </div>
+      <% end %>
+    </wa-dialog>
     """
   end
 end

@@ -327,6 +327,125 @@ defmodule XenoWeb.Components.UITest do
 
       assert html =~ ~r/phx-value-id="123"/
     end
+
+    test "displays custom loading text when provided" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.button loading loading_text="Exporting...">Export</UI.button>
+        """)
+
+      assert html =~ ~r/<wa-spinner/
+      assert html =~ "Exporting..."
+    end
+
+    test "falls back to inner block when no loading_text" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.button loading>Save Changes</UI.button>
+        """)
+
+      assert html =~ ~r/<wa-spinner/
+      assert html =~ "Save Changes"
+    end
+
+    test "renders loading_content slot when loading" do
+      assigns = %{current: 3, total: 10}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.button loading>
+          Export
+          <:loading_content>
+            <UI.spinner size={:sm} /> Exporting {@current}/{@total}
+          </:loading_content>
+        </UI.button>
+        """)
+
+      assert html =~ ~r/<wa-spinner/
+      assert html =~ "Exporting 3/10"
+    end
+
+    test "loading_content overrides loading_text" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.button loading loading_text="Should not appear">
+          Button
+          <:loading_content>
+            Custom loading content
+          </:loading_content>
+        </UI.button>
+        """)
+
+      assert html =~ "Custom loading content"
+      refute html =~ "Should not appear"
+    end
+
+    test "loading_content can include spinner and text" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.button loading>
+          Action
+          <:loading_content>
+            <UI.spinner size={:sm} /> Processing...
+          </:loading_content>
+        </UI.button>
+        """)
+
+      assert html =~ ~r/<wa-spinner/
+      assert html =~ "Processing..."
+    end
+
+    test "existing loading behavior still works" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.button loading>Wait</UI.button>
+        """)
+
+      assert html =~ ~r/<wa-spinner/
+      assert html =~ ~r/loading/
+      assert html =~ "Wait"
+    end
+
+    test "loading_content with dynamic progress values" do
+      assigns = %{step: 2, total: 5}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.button loading>
+          Process
+          <:loading_content>
+            Step {@step} of {@total}
+          </:loading_content>
+        </UI.button>
+        """)
+
+      assert html =~ "Step 2 of 5"
+    end
+
+    test "not loading shows regular content" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.button loading={false} loading_text="Loading...">
+          Normal Button
+        </UI.button>
+        """)
+
+      refute html =~ ~r/<wa-spinner/
+      refute html =~ "Loading..."
+      assert html =~ "Normal Button"
+    end
   end
 
   describe "badge/1" do
@@ -830,6 +949,92 @@ defmodule XenoWeb.Components.UITest do
       assert html =~ "Custom icon message"
     end
 
+    test "info variant renders default circle-info icon" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.alert variant={:info}>
+          Info message
+        </UI.alert>
+        """)
+
+      assert html =~ ~r/name="circle-info"/
+      assert html =~ "Info message"
+    end
+
+    test "success variant renders default check-circle icon" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.alert variant={:success}>
+          Success message
+        </UI.alert>
+        """)
+
+      assert html =~ ~r/name="check-circle"/
+      assert html =~ "Success message"
+    end
+
+    test "warning variant renders default exclamation-triangle icon" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.alert variant={:warning}>
+          Warning message
+        </UI.alert>
+        """)
+
+      assert html =~ ~r/name="exclamation-triangle"/
+      assert html =~ "Warning message"
+    end
+
+    test "danger variant renders default xmark-circle icon" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.alert variant={:danger}>
+          Danger message
+        </UI.alert>
+        """)
+
+      assert html =~ ~r/name="xmark-circle"/
+      assert html =~ "Danger message"
+    end
+
+    test "brand variant renders without default icon" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.alert variant={:brand}>
+          Brand message
+        </UI.alert>
+        """)
+
+      assert html =~ "Brand message"
+      refute html =~ ~r/<wa-icon/
+    end
+
+    test "custom icon slot overrides default icon" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.alert variant={:info}>
+          <:icon><UI.icon name="custom-icon" /></:icon>
+          Custom override
+        </UI.alert>
+        """)
+
+      assert html =~ ~r/name="custom-icon"/
+      refute html =~ ~r/name="circle-info"/
+      assert html =~ "Custom override"
+    end
+
     test "applies custom class" do
       assigns = %{}
 
@@ -1098,6 +1303,233 @@ defmodule XenoWeb.Components.UITest do
         """)
 
       assert html =~ ~r/custom-code/
+    end
+  end
+
+  describe "modal/1" do
+    test "renders when open is true" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal open={true} title="Confirm Action">
+          Are you sure you want to proceed?
+        </UI.modal>
+        """)
+
+      assert html =~ ~r/<wa-dialog[^>]*open/
+      assert html =~ "Confirm Action"
+      assert html =~ "Are you sure you want to proceed?"
+    end
+
+    test "does not include open attribute when closed" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal open={false} title="Hidden Modal">
+          Content
+        </UI.modal>
+        """)
+
+      assert html =~ ~r/<wa-dialog/
+      refute html =~ ~r/<wa-dialog[^>]*open/
+    end
+
+    test "renders with default open state (false)" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="Default Modal">
+          Content
+        </UI.modal>
+        """)
+
+      refute html =~ ~r/<wa-dialog[^>]*open/
+    end
+
+    test "renders required title in label attribute" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal open={true} title="Important Notice">
+          Content
+        </UI.modal>
+        """)
+
+      assert html =~ ~r/label="Important Notice"/
+    end
+
+    test "renders inner block content" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="Test">
+          <p>This is the modal content</p>
+          <span>Multiple elements</span>
+        </UI.modal>
+        """)
+
+      assert html =~ "This is the modal content"
+      assert html =~ "Multiple elements"
+      assert html =~ ~r/<p>/
+    end
+
+    test "renders actions slot in footer" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="Test">
+          Content
+          <:actions>
+            <button>Confirm</button>
+            <button>Cancel</button>
+          </:actions>
+        </UI.modal>
+        """)
+
+      assert html =~ ~r/slot="footer"/
+      assert html =~ "Confirm"
+      assert html =~ "Cancel"
+    end
+
+    test "works without actions slot" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="No Actions">
+          Just content
+        </UI.modal>
+        """)
+
+      assert html =~ "Just content"
+      assert html =~ ~r/<wa-dialog/
+    end
+
+    test "renders with default size (md)" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="Test">
+          Content
+        </UI.modal>
+        """)
+
+      assert html =~ ~r/style="[^"]*--width:\s*60vw/
+    end
+
+    test "renders with small size" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="Test" size={:sm}>
+          Content
+        </UI.modal>
+        """)
+
+      assert html =~ ~r/style="[^"]*--width:\s*40vw/
+    end
+
+    test "renders with large size" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="Test" size={:lg}>
+          Content
+        </UI.modal>
+        """)
+
+      assert html =~ ~r/style="[^"]*--width:\s*80vw/
+    end
+
+    test "renders with xl size" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="Test" size={:xl}>
+          Content
+        </UI.modal>
+        """)
+
+      assert html =~ ~r/style="[^"]*--width:\s*90vw/
+    end
+
+    test "passes through custom class" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="Test" class="custom-modal">
+          Content
+        </UI.modal>
+        """)
+
+      assert html =~ ~r/class="[^"]*custom-modal/
+    end
+
+    test "passes through phx-click events" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="Test" phx-click="close_modal">
+          Content
+        </UI.modal>
+        """)
+
+      assert html =~ ~r/phx-click="close_modal"/
+    end
+
+    test "integration with button component in actions" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="Confirm">
+          Are you sure?
+          <:actions>
+            <UI.button phx-click="confirm" variant={:primary}>
+              Yes
+            </UI.button>
+          </:actions>
+        </UI.modal>
+        """)
+
+      assert html =~ ~r/<wa-button[^>]*variant="primary"/
+      assert html =~ "Yes"
+      assert html =~ ~r/id="confirm-btn"/
+    end
+
+    test "multiple buttons in actions slot" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.modal title="Options">
+          Choose one:
+          <:actions>
+            <UI.button phx-click="option1">Option 1</UI.button>
+            <UI.button phx-click="option2">Option 2</UI.button>
+            <UI.button phx-click="cancel">Cancel</UI.button>
+          </:actions>
+        </UI.modal>
+        """)
+
+      assert html =~ "Option 1"
+      assert html =~ "Option 2"
+      assert html =~ "Cancel"
+      assert html =~ ~r/id="option1-btn"/
+      assert html =~ ~r/id="option2-btn"/
+      assert html =~ ~r/id="cancel-btn"/
     end
   end
 end

@@ -369,14 +369,14 @@ defmodule XenoWeb.NoteEditLiveTest do
     end
 
     test "uses container component with proper max-width", %{conn: conn, note: note} do
-      {:ok, view, html} = live(conn, ~p"/notes/#{note.id}/edit")
+      {:ok, _view, html} = live(conn, ~p"/notes/#{note.id}/edit")
 
       assert html =~ ~r/max-w-/
       assert html =~ ~r/mx-auto/
     end
 
     test "uses button_group for form actions", %{conn: conn, note: note} do
-      {:ok, view, html} = live(conn, ~p"/notes/#{note.id}/edit")
+      {:ok, _view, html} = live(conn, ~p"/notes/#{note.id}/edit")
 
       assert html =~ ~r/flex/
       assert html =~ ~r/gap-/
