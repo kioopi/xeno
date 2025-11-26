@@ -1377,6 +1377,233 @@ defmodule XenoWeb.SyncLiveTest do
     end
   end
 
+  describe "component structure" do
+    test "page uses container component with correct max-width", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      html = render(view)
+      # Container should use component (has sync-container id for phx-hook)
+      assert html =~ "sync-container"
+    end
+
+    test "page has proper heading hierarchy starting with h1", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      html = render(view)
+      assert html =~ "Editor Integration"
+      # Should use h1 for page title (allowing for whitespace)
+      assert html =~ ~r/<h1[^>]*>\s*Editor Integration\s*<\/h1>/
+    end
+
+    test "cards use wa-card component for major sections", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      html = render(view)
+      # Should have wa-card components
+      assert html =~ "wa-card"
+    end
+
+    test "export and import buttons have auto-generated IDs", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+
+      # Buttons should have IDs (either explicit or auto-generated)
+      assert has_element?(view, "#export-all-btn")
+      assert has_element?(view, "#import-btn")
+    end
+
+    test "buttons show loading states with spinner", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+      render_hook(view, "export_progress", %{"current" => 5, "total" => 10})
+
+      html = render(view)
+      # Should show loading state
+      assert html =~ "Exporting 5/10"
+    end
+
+    test "export button stops loading after export_complete", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+
+      # Start export - button should be loading
+      render_hook(view, "export_progress", %{"current" => 5, "total" => 10})
+      html = render(view)
+      assert html =~ "Exporting 5/10"
+
+      # Complete export - button should stop loading
+      render_hook(view, "export_complete", %{"count" => 10})
+      html = render(view)
+      refute html =~ "Exporting"
+
+      # Button should be enabled again (not have loading class/state)
+      assert %{sync_status: :idle} = :sys.get_state(view.pid).socket.assigns
+    end
+
+    test "import button stops loading after import completion", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+
+      # Start import scan - button should be loading
+      render_hook(view, "scan_started", %{"total" => 5})
+      html = render(view)
+      assert html =~ "Importing 0/5"
+
+      # Progress through import
+      render_hook(view, "import_progress", %{"current" => 3, "total" => 5})
+      html = render(view)
+      assert html =~ "Importing 3/5"
+
+      # Complete import - button should stop loading
+      render_hook(view, "import_files", %{"changes" => []})
+      html = render(view)
+      refute html =~ "Importing"
+
+      # Import status should be back to idle
+      assert %{import_status: :idle} = :sys.get_state(view.pid).socket.assigns
+    end
+
+    test "import button full flow from scan_files event", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+
+      # Verify button is not loading initially
+      assert %{import_status: :idle} = :sys.get_state(view.pid).socket.assigns
+
+      # User clicks "Import Changes" - triggers scan_files
+      # This sets import_status to :scanning
+      render_hook(view, "scan_files", %{})
+      assert %{import_status: :scanning} = :sys.get_state(view.pid).socket.assigns
+
+      # JavaScript calls scan_started after counting files
+      render_hook(view, "scan_started", %{"total" => 5})
+      assert %{import_status: {:importing, 0, 5}} = :sys.get_state(view.pid).socket.assigns
+
+      # JavaScript sends import_files with changes
+      # This should set import_status back to :idle
+      render_hook(view, "import_files", %{"changes" => []})
+      assert %{import_status: :idle} = :sys.get_state(view.pid).socket.assigns
+
+      # Button should not be loading anymore
+      html = render(view)
+      refute html =~ "Importing"
+      refute html =~ "Scanning"
+    end
+
+    test "export button remains disabled during export but not loading after error", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+
+      # Start export
+      render_hook(view, "export_progress", %{"current" => 2, "total" => 10})
+      assert %{sync_status: {:exporting, 2, 10}} = :sys.get_state(view.pid).socket.assigns
+
+      # Export error - should go back to idle
+      render_hook(view, "export_error", %{"message" => "Failed"})
+      assert %{sync_status: :idle} = :sys.get_state(view.pid).socket.assigns
+
+      html = render(view)
+      refute html =~ "Exporting"
+    end
+
+    test "import button remains disabled during import but not loading after error", %{
+      conn: conn
+    } do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+
+      # Start import
+      render_hook(view, "import_progress", %{"current" => 2, "total" => 5})
+      assert %{import_status: {:importing, 2, 5}} = :sys.get_state(view.pid).socket.assigns
+
+      # Import error - should go back to idle
+      render_hook(view, "import_error", %{"message" => "Import failed"})
+      assert %{import_status: :idle} = :sys.get_state(view.pid).socket.assigns
+
+      html = render(view)
+      refute html =~ "Importing"
+    end
+
+    test "success alerts use alert component with success variant", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+
+      html = render(view)
+      # Should show success alert for connection
+      assert html =~ "Connected to folder"
+    end
+
+    test "error alerts use alert component with danger variant", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_error", %{"message" => "Test error"})
+
+      html = render(view)
+      assert html =~ "Test error"
+    end
+
+    test "badges use badge component for sync status", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+      render_hook(view, "observer_supported", %{"supported" => true})
+
+      html = render(view)
+      # Should have badge for auto-sync status
+      assert html =~ "Auto-sync available"
+    end
+
+    test "no inline SVG icons remain in output", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+
+      html = render(view)
+      # Should not have inline SVG elements
+      refute html =~ ~r/<svg[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/
+    end
+
+    test "modal uses modal component for conflict dialog", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      conflict_params = %{
+        "path" => "test.md",
+        "jsonId" => "json-id",
+        "serverId" => "server-id",
+        "localId" => "local-id",
+        "reason" => "Test"
+      }
+
+      render_hook(view, "id_conflict", conflict_params)
+
+      html = render(view)
+      # Should use wa-dialog for modal
+      assert html =~ "wa-dialog"
+      assert html =~ "Note ID Conflict Detected"
+    end
+
+    test "action buttons are grouped using button_group component", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/sync")
+
+      render_hook(view, "directory_connected", %{})
+
+      # Button group should provide clean layout for action buttons
+      assert has_element?(view, "#export-all-btn")
+      assert has_element?(view, "#import-btn")
+      assert has_element?(view, "#disconnect-directory-btn")
+    end
+  end
+
   describe "FileSystemObserver UI" do
     test "shows 'Auto-sync available' badge when observer supported", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/sync")

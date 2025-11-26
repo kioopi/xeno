@@ -1,212 +1,104 @@
 <Layouts.app flash={@flash}>
-  <div id="sync-container" phx-hook="FileSystem" class="max-w-6xl mx-auto p-6">
-    <h1 class="text-3xl font-bold mb-6">Editor Integration</h1>
+  <.container max_width={:xl}>
+    <div id="sync-container" phx-hook="FileSystem">
+      <.stack gap={:xl}>
+        <.heading level={1}>Editor Integration</.heading>
 
-    <div class="card bg-base-200 mb-6">
-      <div class="card-body">
-        <h2 class="card-title">Local Folder Connection</h2>
-        <p class="text-sm opacity-70 mb-4">
-          Connect a local folder to sync your notes for editing with external editors like VS Code or Vim.
-        </p>
-
-        <%= if @directory_connected do %>
-          <div class="alert alert-success mb-4">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="stroke-current shrink-0 h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>
-              Connected to folder{if @directory_name, do: ": #{@directory_name}", else: ""}
-            </span>
-          </div>
+        <.card level={2} title="Local Folder Connection" subtitle="Connect a local folder to sync your notes for editing with external editors like VS Code or Vim.">
+          <%= if @directory_connected do %>
+          <.alert variant={:success}>
+            Connected to folder{if @directory_name, do: ": #{@directory_name}", else: ""}
+          </.alert>
           <%!-- FileSystemObserver Status Badge --%>
-          <div class="mb-4">
+          <.stack gap={:m}>
             <%= if @observer_supported do %>
-              <div class="flex items-center gap-4">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-4 w-4 mr-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                    />
-                  </svg>
-                  Auto-sync available
-                </span>
+              <.flank gap={:m}>
+                <.badge variant={:success}>
+                  <.icon name="eye" size="1rem" /> Auto-sync available
+                </.badge>
                 <%= if @watching_enabled do %>
                   <span class="flex items-center text-sm text-green-600 animate-pulse">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-4 w-4 mr-1"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                      />
-                    </svg>
+                    <.icon name="eye" size="1rem" class="mr-1" />
                     Watching for changes...
                   </span>
                 <% end %>
-              </div>
+              </.flank>
             <% else %>
-              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-600">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-4 w-4 mr-1"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Auto-sync not supported (use manual import)
-              </span>
+              <.badge variant={:neutral}>
+                <.icon name="circle-info" size="1rem" /> Auto-sync not supported (use manual import)
+              </.badge>
             <% end %>
-          </div>
+          </.stack>
 
-          <div class="flex gap-4">
-            <button
-              id="export-all-btn"
+          <.button_group gap={:m}>
+            <.button
               phx-click="export_all"
+              variant={:primary}
               disabled={@sync_status != :idle}
-              class={[
-                "btn btn-primary transition-all duration-200",
-                @sync_status != :idle && "btn-disabled"
-              ]}
+              loading={@sync_status == :exporting or match?({:exporting, _, _}, @sync_status)}
             >
-              <%= cond do %>
-                <% @sync_status == :exporting -> %>
-                  <span class="loading loading-spinner loading-sm"></span> Exporting...
-                <% match?({:exporting, _, _}, @sync_status) -> %>
-                  <% {_, current, total} = @sync_status %>
-                  <span class="loading loading-spinner loading-sm"></span>
-                  Exporting {current}/{total}
-                <% true -> %>
-                  Export All Notes
-              <% end %>
-            </button>
+              <:loading_content>
+                <%= cond do %>
+                  <% match?({:exporting, _, _}, @sync_status) -> %>
+                    <% {_, current, total} = @sync_status %>
+                    Exporting {current}/{total}
+                  <% true -> %>
+                    Exporting...
+                <% end %>
+              </:loading_content>
+              Export All Notes
+            </.button>
 
-            <button
+            <.button
               id="import-btn"
               phx-click="scan_files"
+              variant={:secondary}
               disabled={@import_status != :idle}
-              class={[
-                "btn btn-secondary transition-all duration-200",
-                @import_status != :idle && "btn-disabled"
-              ]}
+              loading={@import_status == :scanning or match?({:importing, _, _}, @import_status)}
             >
-              <%= cond do %>
-                <% @import_status == :scanning -> %>
-                  <span class="loading loading-spinner loading-sm"></span> Scanning...
-                <% match?({:importing, _, _}, @import_status) -> %>
-                  <% {_, current, total} = @import_status %>
-                  <span class="loading loading-spinner loading-sm"></span>
-                  Importing {current}/{total}
-                <% true -> %>
-                  Import Changes
-              <% end %>
-            </button>
+              <:loading_content>
+                <%= cond do %>
+                  <% @import_status == :scanning -> %>
+                    Scanning...
+                  <% match?({:importing, _, _}, @import_status) -> %>
+                    <% {_, current, total} = @import_status %>
+                    Importing {current}/{total}
+                  <% true -> %>
+                    Loading...
+                <% end %>
+              </:loading_content>
+              Import Changes
+            </.button>
             <%!-- Auto-Sync Toggle Button (only if observer supported) --%>
             <%= if @observer_supported do %>
-              <%= if @watching_enabled do %>
-                <button
-                  id="stop-watching-btn"
-                  phx-click="stop_watching"
-                  class="btn btn-warning transition-all duration-200"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5 mr-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  Pause Auto-Sync
-                </button>
-              <% else %>
-                <button
-                  id="start-watching-btn"
-                  phx-click="start_watching"
-                  class="btn btn-success transition-all duration-200"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5 mr-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                    />
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  Enable Auto-Sync
-                </button>
-              <% end %>
+              <.button
+                :if={@watching_enabled}
+                id="stop-watching-btn"
+                phx-click="stop_watching"
+                variant={:soft}
+              >
+                <.icon name="circle-pause" class="h-5 w-5 mr-1" />
+                Pause Auto-Sync
+              </.button>
+              <.button
+                :if={!@watching_enabled}
+                id="start-watching-btn"
+                phx-click="start_watching"
+                variant={:primary}
+              >
+                <.icon name="circle-play" class="h-5 w-5 mr-1" />
+                Enable Auto-Sync
+              </.button>
             <% end %>
 
-            <button
+            <.button
               id="disconnect-directory-btn"
               phx-click="disconnect_directory"
-              class="btn btn-outline transition-all duration-200"
+              variant={:ghost}
             >
               Disconnect Folder
-            </button>
-          </div>
+            </.button>
+          </.button_group>
 
           <div class="text-sm opacity-70 mt-4">
             <p><strong>Export:</strong> Save notes from database to local files</p>
@@ -215,20 +107,7 @@
 
           <%= if @last_operation do %>
             <div class="mt-4 text-sm opacity-70 flex items-center gap-2 animate-fade-in">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-4 w-4 text-success animate-scale-in"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <.icon name="circle-check" class="h-4 w-4 text-success animate-scale-in" />
               <span>
                 Last {if @last_operation.type == :export, do: "export", else: "import"}: {@last_operation.count} note(s)
                 <%= if @last_operation.type == :import && @last_operation.failed > 0 do %>
@@ -251,50 +130,39 @@
             </div>
           <% end %>
         <% else %>
-          <button id="connect-directory-btn" phx-click="connect_directory" class="btn btn-primary">
-            Choose Folder
-          </button>
+          <.stack gap={:m}>
+            <.button phx-click="connect_directory" variant={:primary}>
+              Choose Folder
+            </.button>
 
-          <p class="text-xs opacity-60 mt-4">
-            Note: This feature requires Chrome 86+ or Edge 86+
-          </p>
+            <p class="text-xs opacity-60">
+              Note: This feature requires Chrome 86+ or Edge 86+
+            </p>
+          </.stack>
         <% end %>
-      </div>
-    </div>
+        </.card>
 
-    <%= if @error do %>
-      <div class="alert alert-error mb-6">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="stroke-current shrink-0 h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        <span>{@error}</span>
-      </div>
-    <% end %>
+        <%= if @error do %>
+          <.alert variant={:danger}>
+            {@error}
+          </.alert>
+        <% end %>
 
-    <%= if @sync_errors do %>
-      <div id="error-container" class="space-y-3 mb-6 animate-fade-in">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-semibold">
-            Sync Errors ({length(@sync_errors)})
-          </h3>
-          <button
-            id="clear-errors-btn"
-            phx-click="clear_errors"
-            class="btn btn-ghost btn-sm"
-          >
-            Clear All
-          </button>
-        </div>
+        <%= if @sync_errors do %>
+          <div id="error-container" class="animate-fade-in">
+          <.stack gap={:m}>
+            <.flank gap={:m}>
+              <.heading level={2}>
+                Sync Errors ({length(@sync_errors)})
+              </.heading>
+              <.button
+                phx-click="clear_errors"
+                variant={:ghost}
+                size={:sm}
+              >
+                Clear All
+              </.button>
+            </.flank>
 
         <div
           :for={{error, idx} <- Enum.with_index(@sync_errors)}
@@ -432,173 +300,160 @@
             <% end %>
           </div>
         </div>
-      </div>
-    <% end %>
-    <%!-- ID Conflict Resolution Dialog --%>
-    <%= if @id_conflict do %>
-      <div
-        id="conflict-dialog"
-        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-        phx-click="cancel_conflict"
-      >
-        <div
-          class="bg-base-100 rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6"
-          phx-click="stop_propagation"
-        >
-          <h3 class="text-2xl font-bold mb-4 text-error">
-            <span class="hero-exclamation-triangle inline-block w-6 h-6 mr-2"></span>
-            Note ID Conflict Detected
-          </h3>
-
-          <div class="alert alert-warning mb-6">
-            <span class="hero-information-circle w-5 h-5"></span>
-            <div>
-              <p class="font-semibold">The note has conflicting IDs</p>
-              <p class="text-sm">
-                Please choose which ID to use. The file will be updated automatically.
-              </p>
-            </div>
+          </.stack>
           </div>
+        <% end %>
 
-          <div class="mb-6">
-            <p class="text-sm opacity-70 mb-2">
-              <strong>File:</strong>
-              <code class="bg-base-200 px-2 py-1 rounded">{@id_conflict.path}</code>
-            </p>
-            <%= if @id_conflict.reason do %>
-              <p class="text-sm opacity-70">
-                <strong>Reason:</strong>
-                {@id_conflict.reason}
-              </p>
-            <% end %>
-          </div>
+        <%!-- ID Conflict Resolution Dialog --%>
+        <%= if @id_conflict do %>
+        <wa-dialog open={true} id="conflict-dialog">
+          <.stack gap={:l}>
+            <.heading level={2} class="text-error">
+              <.icon name="triangle-exclamation" class="inline-block w-6 h-6 mr-2" />
+              Note ID Conflict Detected
+            </.heading>
 
-          <div class="space-y-3 mb-8">
-            <%!-- Server ID Option --%>
-            <div class="card bg-primary/10 border-2 border-primary hover:bg-primary/20 cursor-pointer transition">
-              <div class="card-body p-4">
-                <div class="flex items-start justify-between">
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-2">
-                      <span class="badge badge-primary">Recommended</span>
-                      <h4 class="font-semibold">Server ID</h4>
-                    </div>
-                    <code class="text-sm block bg-base-200 px-2 py-1 rounded mb-2 font-mono">
-                      {@id_conflict.server_id}
-                    </code>
-                    <p class="text-xs opacity-70">
-                      ID found in the database at this path. This is usually the correct choice.
-                    </p>
-                  </div>
-                  <button
-                    id="choose-server-btn"
-                    phx-click="resolve_conflict"
-                    phx-value-choice="server"
-                    class="btn btn-primary btn-sm"
-                  >
-                    Use This
-                  </button>
-                </div>
+            <.alert variant={:warning}>
+              <div>
+                <p class="font-semibold">The note has conflicting IDs</p>
+                <p class="text-sm">
+                  Please choose which ID to use. The file will be updated automatically.
+                </p>
               </div>
-            </div>
-            <%!-- Local Cache ID Option --%>
-            <%= if @id_conflict.local_id do %>
-              <div class="card bg-base-200 border-2 border-base-300 hover:bg-base-300 cursor-pointer transition">
-                <div class="card-body p-4">
-                  <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                      <div class="flex items-center gap-2 mb-2">
-                        <span class="badge badge-neutral">Local Cache</span>
-                        <h4 class="font-semibold">Browser Cache ID</h4>
-                      </div>
-                      <code class="text-sm block bg-base-100 px-2 py-1 rounded mb-2 font-mono">
-                        {@id_conflict.local_id}
+            </.alert>
+
+              <div>
+                <p class="text-sm opacity-70 mb-2">
+                  <strong>File:</strong>
+                  <code class="bg-base-200 px-2 py-1 rounded">{@id_conflict.path}</code>
+                </p>
+                <%= if @id_conflict.reason do %>
+                  <p class="text-sm opacity-70">
+                    <strong>Reason:</strong>
+                    {@id_conflict.reason}
+                  </p>
+                <% end %>
+              </div>
+
+              <.stack gap={:m}>
+                <%!-- Server ID Option --%>
+                <.card class="bg-primary/10 border-2 border-primary hover:bg-primary/20 cursor-pointer transition">
+                  <.flank gap={:m}>
+                    <.stack gap={:s} class="flex-1">
+                      <.flank gap={:s}>
+                        <.badge variant={:primary}>Recommended</.badge>
+                        <h4 class="font-semibold">Server ID</h4>
+                      </.flank>
+                      <code class="text-sm block bg-base-200 px-2 py-1 rounded font-mono">
+                        {@id_conflict.server_id}
                       </code>
                       <p class="text-xs opacity-70">
-                        ID stored in your browser's local cache from previous imports.
+                        ID found in the database at this path. This is usually the correct choice.
                       </p>
-                    </div>
-                    <button
-                      id="choose-local-btn"
+                    </.stack>
+                    <.button
+                      id="choose-server-btn"
                       phx-click="resolve_conflict"
-                      phx-value-choice="local"
-                      class="btn btn-neutral btn-sm"
+                      phx-value-choice="server"
+                      variant={:primary}
+                      size={:sm}
                     >
                       Use This
-                    </button>
-                  </div>
-                </div>
-              </div>
-            <% end %>
-            <%!-- JSON File ID Option --%>
-            <div class="card bg-base-200 border-2 border-base-300 hover:bg-base-300 cursor-pointer transition">
-              <div class="card-body p-4">
-                <div class="flex items-start justify-between">
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-2">
-                      <span class="badge badge-neutral">Current File</span>
-                      <h4 class="font-semibold">JSON File ID</h4>
-                    </div>
-                    <code class="text-sm block bg-base-100 px-2 py-1 rounded mb-2 font-mono">
-                      {@id_conflict.json_id}
-                    </code>
-                    <p class="text-xs opacity-70">
-                      ID currently in the JSON file. May contain a typo or be outdated.
-                    </p>
-                  </div>
-                  <button
-                    id="choose-json-btn"
-                    phx-click="resolve_conflict"
-                    phx-value-choice="json"
-                    class="btn btn-neutral btn-sm"
-                  >
-                    Use This
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+                    </.button>
+                  </.flank>
+                </.card>
+                <%!-- Local Cache ID Option --%>
+                <%= if @id_conflict.local_id do %>
+                  <.card class="bg-base-200 border-2 border-base-300 hover:bg-base-300 cursor-pointer transition">
+                    <.flank gap={:m}>
+                      <.stack gap={:s} class="flex-1">
+                        <.flank gap={:s}>
+                          <.badge variant={:neutral}>Local Cache</.badge>
+                          <h4 class="font-semibold">Browser Cache ID</h4>
+                        </.flank>
+                        <code class="text-sm block bg-base-100 px-2 py-1 rounded font-mono">
+                          {@id_conflict.local_id}
+                        </code>
+                        <p class="text-xs opacity-70">
+                          ID stored in your browser's local cache from previous imports.
+                        </p>
+                      </.stack>
+                      <.button
+                        id="choose-local-btn"
+                        phx-click="resolve_conflict"
+                        phx-value-choice="local"
+                        variant={:secondary}
+                        size={:sm}
+                      >
+                        Use This
+                      </.button>
+                    </.flank>
+                  </.card>
+                <% end %>
 
-          <div class="flex justify-end gap-3">
-            <button
-              id="cancel-conflict-btn"
-              phx-click="cancel_conflict"
-              class="btn btn-ghost"
+                <%!-- JSON File ID Option --%>
+                <.card class="bg-base-200 border-2 border-base-300 hover:bg-base-300 cursor-pointer transition">
+                  <.flank gap={:m}>
+                    <.stack gap={:s} class="flex-1">
+                      <.flank gap={:s}>
+                        <.badge variant={:neutral}>Current File</.badge>
+                        <h4 class="font-semibold">JSON File ID</h4>
+                      </.flank>
+                      <code class="text-sm block bg-base-100 px-2 py-1 rounded font-mono">
+                        {@id_conflict.json_id}
+                      </code>
+                      <p class="text-xs opacity-70">
+                        ID currently in the JSON file. May contain a typo or be outdated.
+                      </p>
+                    </.stack>
+                    <.button
+                      id="choose-json-btn"
+                      phx-click="resolve_conflict"
+                      phx-value-choice="json"
+                      variant={:secondary}
+                      size={:sm}
+                    >
+                      Use This
+                    </.button>
+                  </.flank>
+                </.card>
+              </.stack>
+
+              <.button_group gap={:m} class="justify-end">
+                <.button
+                  id="cancel-conflict-btn"
+                  phx-click="cancel_conflict"
+                  variant={:ghost}
+                >
+                  Cancel
+                </.button>
+              </.button_group>
+          </.stack>
+        </wa-dialog>
+        <% end %>
+
+        <.card level={2} title="Export Preview (Development)" subtitle="Preview what the exported files will look like without writing to disk.">
+          <.button_group gap={:m}>
+            <.button
+              id="export-preview-btn"
+              phx-click="export_preview"
+              phx-value-note_id="64b3b4b0-ea00-43a4-901c-cb0294b66fe1"
+              variant={:secondary}
+              size={:sm}
             >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    <% end %>
+              Preview Single Note
+            </.button>
 
-    <div class="card bg-base-200 mb-6">
-      <div class="card-body">
-        <h2 class="card-title">Export Preview (Development)</h2>
-        <p class="text-sm opacity-70 mb-4">
-          Preview what the exported files will look like without writing to disk.
-        </p>
-
-        <div class="flex gap-4">
-          <button
-            id="export-preview-btn"
-            phx-click="export_preview"
-            phx-value-note_id="64b3b4b0-ea00-43a4-901c-cb0294b66fe1"
-            class="btn btn-secondary btn-sm"
-          >
-            Preview Single Note
-          </button>
-
-          <button
-            id="export-all-preview-btn"
-            phx-click="export_all_preview"
-            class="btn btn-secondary btn-sm"
-          >
-            Preview All Notes
-          </button>
-        </div>
-      </div>
-    </div>
+            <.button
+              id="export-all-preview-btn"
+              phx-click="export_all_preview"
+              variant={:secondary}
+              size={:sm}
+            >
+              Preview All Notes
+            </.button>
+          </.button_group>
+        </.card>
 
     <%= if @preview_mode == :single && @preview_data do %>
       <div id="preview-container" class="space-y-6">
@@ -646,5 +501,7 @@
         </div>
       </div>
     <% end %>
-  </div>
+      </.stack>
+    </div>
+  </.container>
 </Layouts.app>

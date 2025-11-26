@@ -38,8 +38,24 @@ const liveSocket = new LiveSocket("/live", Socket, {
     onBeforeElUpdated: (from, to) => {
       // Preserve Web Component attributes during LiveView morphdom updates
       // This prevents WebAwesome components from losing their state
+      // BUT: Don't preserve dynamic state attributes that LiveView controls
       if (from.tagName && from.tagName.startsWith("WA-")) {
-        [...to.attributes, ...from.attributes].forEach((attr) => {
+        const dynamicAttrs = new Set(['loading', 'disabled', 'open']);
+
+        // Copy attributes from 'to' (new state from server)
+        [...to.attributes].forEach((attr) => {
+          from.setAttribute(attr.name, attr.value);
+        });
+
+        // Remove dynamic attributes from 'from' if they're not in 'to'
+        [...from.attributes].forEach((attr) => {
+          if (dynamicAttrs.has(attr.name) && !to.hasAttribute(attr.name)) {
+            from.removeAttribute(attr.name);
+          }
+        });
+
+        // Copy from back to to for morphdom
+        [...from.attributes].forEach((attr) => {
           to.setAttribute(attr.name, attr.value);
         });
       }

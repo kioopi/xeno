@@ -85,7 +85,7 @@ defmodule XenoWeb.Features.SyncLiveTest do
     test "instructions are displayed" do
       build_conn()
       |> visit("/sync")
-      |> assert_has("p", text: "Connect a local folder to sync your notes")
+      |> assert_has("div", text: "Connect a local folder to sync your notes")
     end
   end
 
@@ -102,8 +102,8 @@ defmodule XenoWeb.Features.SyncLiveTest do
       session = build_conn() |> visit("/sync")
 
       session
-      |> assert_has("button", text: "Choose Folder")
-      |> assert_has("button", text: "Preview Single Note")
+      |> assert_has("wa-button", text: "Choose Folder")
+      |> assert_has("wa-button", text: "Preview Single Note")
     end
 
     test "page has proper semantic structure" do
