@@ -5,7 +5,7 @@ defmodule XenoWeb.Components.Navigation do
   use Phoenix.Component
   use Gettext, backend: XenoWeb.Gettext
 
-  defdelegate icon(assigns), to: XenoWeb.CoreComponents
+  defdelegate icon(assigns), to: XenoWeb.Components.UI
 
   # alias Phoenix.LiveView.JS
 
