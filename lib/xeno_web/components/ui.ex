@@ -502,7 +502,7 @@ defmodule XenoWeb.Components.UI do
 
   def button_group(assigns) do
     ~H"""
-    <div class={["flex", button_group_gap(@gap), @class]} {@rest}>
+    <div class={["flex flex-wrap", button_group_gap(@gap), @class]} {@rest}>
       {render_slot(@inner_block)}
     </div>
     """

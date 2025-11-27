@@ -6,31 +6,25 @@
 
         <.card level={2} title="Local Folder Connection" subtitle="Connect a local folder to sync your notes for editing with external editors like VS Code or Vim.">
           <%= if @directory_connected do %>
-          <.alert variant={:success}>
-            Connected to folder{if @directory_name, do: ": #{@directory_name}", else: ""}
-          </.alert>
           <%!-- FileSystemObserver Status Badge --%>
           <.stack gap={:m}>
-            <%= if @observer_supported do %>
-              <.flank gap={:m}>
+            <.alert variant={:success}>
+              Connected to folder{if @directory_name, do: ": #{@directory_name}", else: ""}
+            </.alert>
+              <.flank :if={@observer_supported} gap={:m}>
                 <.badge variant={:success}>
                   <.icon name="eye" size="1rem" /> Auto-sync available
                 </.badge>
-                <%= if @watching_enabled do %>
-                  <span class="flex items-center text-sm text-green-600 animate-pulse">
-                    <.icon name="eye" size="1rem" class="mr-1" />
-                    Watching for changes...
-                  </span>
-                <% end %>
+                <.badge :if={@watching_enabled} variant={:primary}>
+                  <.icon name="eye" size="1rem"  class="animate-pulse"/> Watching for changes...
+                </.badge>
               </.flank>
-            <% else %>
-              <.badge variant={:neutral}>
+              <.badge :if={!@observer_supported} variant={:neutral}>
                 <.icon name="circle-info" size="1rem" /> Auto-sync not supported (use manual import)
               </.badge>
-            <% end %>
           </.stack>
 
-          <.button_group gap={:m}>
+          <.button_group gap={:s} class="mt-2">
             <.button
               phx-click="export_all"
               variant={:primary}
@@ -77,7 +71,7 @@
                 phx-click="stop_watching"
                 variant={:soft}
               >
-                <.icon name="circle-pause" class="h-5 w-5 mr-1" />
+                <.icon name="circle-pause" />
                 Pause Auto-Sync
               </.button>
               <.button
@@ -86,7 +80,7 @@
                 phx-click="start_watching"
                 variant={:primary}
               >
-                <.icon name="circle-play" class="h-5 w-5 mr-1" />
+                <.icon name="circle-play" />
                 Enable Auto-Sync
               </.button>
             <% end %>
