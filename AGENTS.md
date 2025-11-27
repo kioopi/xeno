@@ -1,4 +1,4 @@
-This is a web application written using the Phoenix web framework.
+This is a web application written using Ash and the Phoenix web framework.
 
 ## Project guidelines
 
@@ -504,64 +504,7 @@ _The PostgreSQL data layer for Ash Framework*
       matches = LazyHTML.filter(document, "your-complex-selector")
       IO.inspect(matches, label: "Matches")
 
-### Form handling
-
-#### Creating a form from params
-
-If you want to create a form based on `handle_event` params:
-
-    def handle_event("submitted", params, socket) do
-      {:noreply, assign(socket, form: to_form(params))}
-    end
-
-When you pass a map to `to_form/1`, it assumes said map contains the form params, which are expected to have string keys.
-
-You can also specify a name to nest the params:
-
-    def handle_event("submitted", %{"user" => user_params}, socket) do
-      {:noreply, assign(socket, form: to_form(user_params, as: :user))}
-    end
-
-#### Creating a form from changesets
-
-When using changesets, the underlying data, form params, and errors are retrieved from it. The `:as` option is automatically computed too. E.g. if you have a user schema:
-
-    defmodule MyApp.Users.User do
-      use Ecto.Schema
-      ...
-    end
-
-And then you create a changeset that you pass to `to_form`:
-
-    %MyApp.Users.User{}
-    |> Ecto.Changeset.change()
-    |> to_form()
-
-Once the form is submitted, the params will be available under `%{"user" => user_params}`.
-
-In the template, the form form assign can be passed to the `<.form>` function component:
-
-    <.form for={@form} id="todo-form" phx-change="validate" phx-submit="save">
-      <.input field={@form[:field]} type="text" />
-    </.form>
-
-Always give the form an explicit, unique DOM ID, like `id="todo-form"`.
-
 #### Avoiding form errors
-
-**Always** use a form assigned via `to_form/2` in the LiveView, and the `<.input>` component in the template. In the template **always access forms this**:
-
-    <%!-- ALWAYS do this (valid) --%>
-    <.form for={@form} id="my-form">
-      <.input field={@form[:field]} type="text" />
-    </.form>
-
-And **never** do this:
-
-    <%!-- NEVER do this (invalid) --%>
-    <.form for={@changeset} id="my-form">
-      <.input field={@changeset[:field]} type="text" />
-    </.form>
 
 - You are FORBIDDEN from accessing the changeset in the template as it will cause errors
 - **Never** use `<.form let={f} ...>` in the template, instead **always use `<.form for={@form} ...>`**, then drive all form references from the form assign as in `@form[:field]`. The UI should **always** be driven by a `to_form/2` assigned in the LiveView module that is derived from a changeset
@@ -585,15 +528,7 @@ And **never** do this:
   the UserLive route would point to the `AppWeb.Admin.UserLive` module
 
 - `Phoenix.View` no longer is needed or included with Phoenix, don't use it
-
 <!-- phoenix:phoenix-end -->
-<!-- igniter-start -->
-## igniter usage
-
-_A code generation and project patching framework*
-
-[igniter usage rules](deps/igniter/usage-rules.md)
-<!-- igniter-end -->
 <!-- ash_phoenix-start -->
 ## ash_phoenix usage
 
@@ -711,44 +646,7 @@ mix usage_rules.search_docs "Enum.zip" --query-by title
 ## Debugging
 
 - Use `dbg/1` to print values while debugging. This will display the formatted value and other relevant information in the console.
-
 <!-- usage_rules:elixir-end -->
-<!-- usage_rules:otp-start -->
-## usage_rules:otp usage
-
-# OTP Usage Rules
-
-## GenServer Best Practices
-
-- Keep state simple and serializable
-- Handle all expected messages explicitly
-- Use `handle_continue/2` for post-init work
-- Implement proper cleanup in `terminate/2` when necessary
-
-## Process Communication
-
-- Use `GenServer.call/3` for synchronous requests expecting replies
-- Use `GenServer.cast/2` for fire-and-forget messages.
-- When in doubt, use `call` over `cast`, to ensure back-pressure
-- Set appropriate timeouts for `call/3` operations
-
-## Fault Tolerance
-
-- Set up processes such that they can handle crashing and being restarted by supervisors
-- Use `:max_restarts` and `:max_seconds` to prevent restart loops
-
-## Task and Async
-
-- Use `Task.Supervisor` for better fault tolerance
-- Handle task failures with `Task.yield/2` or `Task.shutdown/2`
-- Set appropriate task timeouts
-- Use `Task.async_stream/3` for concurrent enumeration with back-pressure
-
-<!-- usage_rules:otp-end -->
-<!-- usage-rules-end -->
-
-<!-- usage-rules-start -->
-<!-- usage-rules-header -->
 # Usage Rules
 
 **IMPORTANT**: Consult these usage rules early and often when working with the packages listed below.
@@ -790,19 +688,22 @@ usage rules to understand the correct patterns, conventions, and best practices.
 
 <!-- ash-start -->
 ## ash usage
-_A declarative, extensible framework for building Elixir applications._
+
+_A declarative, extensible framework for building Elixir applications.*
 
 [ash usage rules](deps/ash/usage-rules.md)
 <!-- ash-end -->
 <!-- ash_postgres-start -->
 ## ash_postgres usage
-_The PostgreSQL data layer for Ash Framework_
+
+_The PostgreSQL data layer for Ash Framework*
 
 [ash_postgres usage rules](deps/ash_postgres/usage-rules.md)
 <!-- ash_postgres-end -->
 <!-- ash_phoenix-start -->
 ## ash_phoenix usage
-_Utilities for integrating Ash and Phoenix_
+
+_Utilities for integrating Ash and Phoenix*
 
 [ash_phoenix usage rules](deps/ash_phoenix/usage-rules.md)
 <!-- ash_phoenix-end -->
