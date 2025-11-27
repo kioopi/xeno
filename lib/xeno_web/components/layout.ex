@@ -59,13 +59,13 @@ defmodule XenoWeb.Components.Layout do
         Content with extra large gaps
       </.stack>
   """
-  attr :gap, :atom, default: :m, values: [:s, :m, :l, :xl]
+  attr :gap, :atom, default: :m, values: [:xxxs, :xxs, :xs, :s, :m, :l, :xl, :xxl, :xxxl]
   attr :class, :string, default: nil
   slot :inner_block, required: true
 
   def stack(assigns) do
     ~H"""
-    <div class={["wa-stack", "wa-gap-#{@gap}", @class]}>
+    <div class={["wa-stack", "wa-gap-#{gap_class(@gap)}", @class]}>
       {render_slot(@inner_block)}
     </div>
     """
@@ -87,14 +87,14 @@ defmodule XenoWeb.Components.Layout do
       </.grid>
   """
   attr :min_column_size, :string, default: "20ch"
-  attr :gap, :atom, default: :m, values: [:s, :m, :l, :xl]
+  attr :gap, :atom, default: :m, values: [:xxxs, :xxs, :xs, :s, :m, :l, :xl, :xxl, :xxxl]
   attr :class, :string, default: nil
   slot :inner_block, required: true
 
   def grid(assigns) do
     ~H"""
     <div
-      class={["wa-grid", "wa-gap-#{@gap}", @class]}
+      class={["wa-grid", "wa-gap-#{gap_class(@gap)}", @class]}
       style={"--min-column-size: #{@min_column_size}"}
     >
       {render_slot(@inner_block)}
@@ -118,7 +118,7 @@ defmodule XenoWeb.Components.Layout do
       </.split>
   """
   attr :direction, :atom, default: :horizontal, values: [:horizontal, :vertical]
-  attr :gap, :atom, default: :m, values: [:s, :m, :l, :xl]
+  attr :gap, :atom, default: :m, values: [:xxxs, :xxs, :xs, :s, :m, :l, :xl, :xxl, :xxxl]
   attr :class, :string, default: nil
   slot :inner_block, required: true
 
@@ -127,7 +127,7 @@ defmodule XenoWeb.Components.Layout do
     <div class={[
       "wa-split",
       @direction == :vertical && "wa-split-vertical",
-      "wa-gap-#{@gap}",
+      "wa-gap-#{gap_class(@gap)}",
       @class
     ]}>
       {render_slot(@inner_block)}
@@ -150,15 +150,21 @@ defmodule XenoWeb.Components.Layout do
         <span>User name</span>
       </.flank>
   """
-  attr :gap, :atom, default: :m, values: [:s, :m, :l]
+  attr :gap, :atom, default: :m, values: [:xxxs, :xxs, :xs, :s, :m, :l, :xl, :xxl, :xxxl]
   attr :class, :string, default: nil
   slot :inner_block, required: true
 
   def flank(assigns) do
     ~H"""
-    <div class={["wa-flank", "wa-gap-#{@gap}", @class]}>
+    <div class={["wa-flank", "wa-gap-#{gap_class(@gap)}", @class]}>
       {render_slot(@inner_block)}
     </div>
     """
   end
+
+  defp gap_class(:xxxs), do: "3xs"
+  defp gap_class(:xxs), do: "2xs"
+  defp gap_class(:xxxl), do: "3xl"
+  defp gap_class(:xxl), do: "2xl"
+  defp gap_class(gap), do: to_string(gap)
 end

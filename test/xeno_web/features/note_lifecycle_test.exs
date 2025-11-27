@@ -27,7 +27,7 @@ defmodule XenoWeb.Features.NoteLifecycleTest do
     end
 
     test "page uses proper heading hierarchy" do
-      note = generate(note())
+      note = generate(note(text: "hello"))
 
       build_conn()
       |> visit("/notes/#{note.id}")

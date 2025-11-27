@@ -18,6 +18,7 @@ All components are automatically available in LiveView templates through `XenoWe
 Templates should describe **what** things are, not **how** they look.
 
 **❌ Don't do this (imperative, class-heavy):**
+
 ```heex
 <div class="max-w-7xl mx-auto px-4 py-8">
   <h1 class="text-3xl font-bold mb-8">Page Title</h1>
@@ -32,6 +33,7 @@ Templates should describe **what** things are, not **how** they look.
 ```
 
 **✅ Do this (declarative, semantic):**
+
 ```heex
 <.container>
   <.stack gap={:xl}>
@@ -78,6 +80,7 @@ This makes testing easier without manual ID management.
 ### Layout Components
 
 #### `<.container>`
+
 Page-level wrapper with responsive max-width.
 
 ```heex
@@ -86,6 +89,7 @@ Page-level wrapper with responsive max-width.
 ```
 
 #### `<.stack>`
+
 Vertical layout with consistent spacing.
 
 ```heex
@@ -96,6 +100,7 @@ Vertical layout with consistent spacing.
 ```
 
 #### `<.grid>`
+
 Responsive auto-grid layout.
 
 ```heex
@@ -106,6 +111,7 @@ Responsive auto-grid layout.
 ```
 
 #### `<.split>`
+
 Distribute items evenly across space.
 
 ```heex
@@ -116,6 +122,7 @@ Distribute items evenly across space.
 ```
 
 #### `<.flank>`
+
 Icon/avatar + text layout (one item flanks another that fills space).
 
 ```heex
@@ -128,6 +135,7 @@ Icon/avatar + text layout (one item flanks another that fills space).
 ### UI Components
 
 #### `<.heading>`
+
 Semantic headings with level-based styling.
 
 ```heex
@@ -136,6 +144,7 @@ Semantic headings with level-based styling.
 ```
 
 #### `<.icon>`
+
 Icons using Font Awesome (via WebAwesome).
 
 ```heex
@@ -144,25 +153,37 @@ Icons using Font Awesome (via WebAwesome).
 ```
 
 #### `<.button>`
-Action buttons with variants and loading states.
+
+Action buttons with variants, appearances, and loading states.
 
 ```heex
-<.button phx-click="save" variant={:primary}>Save</.button>
-<.button phx-click="delete" variant={:secondary}>Delete</.button>
+<.button phx-click="save" variant={:brand} appearance={:filled}>Save</.button>
+<.button phx-click="cancel" variant={:neutral} appearance={:outlined}>Cancel</.button>
+<.button phx-click="delete" variant={:neutral} appearance={:plain}>Delete</.button>
 <.button loading={@saving}>Save</.button>
 
 <%!-- Complex loading states --%>
 <.button phx-click="export" loading={@exporting}>
   <:loading_content>
-    <.spinner size={:sm} /> Exporting {@current_count}/{@total_count}
+    <.spinner size={:small} /> Exporting {@current_count}/{@total_count}
   </:loading_content>
   Export All
 </.button>
 ```
 
-**Variants:** `:primary`, `:secondary`, `:ghost`, `:soft`
+**Variants:** `:neutral`, `:brand`, `:success`, `:warning`, `:danger`
+**Appearances:** `:accent`, `:filled-outlined`, `:filled`, `:outlined`, `:plain`
+**Sizes:** `:small`, `:medium` (default), `:large`
+
+**Common Combinations:**
+- Primary action: `variant={:brand} appearance={:filled}` - Bold brand-colored button (most prominent)
+- Secondary action: `variant={:neutral} appearance={:outlined}` - Neutral with border (medium emphasis)
+- Minimal/cancel: `variant={:neutral} appearance={:plain}` - Text-only (low emphasis)
+- Success action: `variant={:success} appearance={:filled}` - Green filled button
+- Danger action: `variant={:danger} appearance={:filled}` - Red filled button
 
 #### `<.badge>`
+
 Status indicators and tags.
 
 ```heex
@@ -173,6 +194,7 @@ Status indicators and tags.
 **Variants:** `:primary`, `:success`, `:neutral`, `:warning`, `:danger`
 
 #### `<.card>`
+
 Content containers with optional header, footer, and actions.
 
 ```heex
@@ -189,6 +211,7 @@ Content containers with optional header, footer, and actions.
 ```
 
 #### `<.alert>`
+
 Status messages with default icons.
 
 ```heex
@@ -196,15 +219,18 @@ Status messages with default icons.
 <.alert variant={:danger}>Error occurred.</.alert>
 
 <%!-- Custom icon --%>
-<.alert variant={:info}>
+<.alert variant={:brand}>
   <:icon><.icon name="lightbulb" /></:icon>
   Pro tip: Use keyboard shortcuts!
 </.alert>
 ```
 
-**Variants:** `:info` (circle-info icon), `:success` (check-circle), `:warning` (exclamation-triangle), `:danger` (xmark-circle), `:brand` (no icon)
+**Variants:** `:neutral`, `:brand`, `:success`, `:warning`, `:danger`
+**Appearances:** `:accent`, `:filled-outlined`, `:filled`, `:outlined`, `:plain`
+**Sizes:** `:small`, `:medium` (default), `:large`
 
 #### `<.modal>`
+
 Dialog overlays for focused interactions.
 
 ```heex
@@ -219,6 +245,7 @@ Dialog overlays for focused interactions.
 ```
 
 #### `<.page_header>`
+
 Page title section with optional subtitle and actions.
 
 ```heex
@@ -230,6 +257,7 @@ Page title section with optional subtitle and actions.
 ```
 
 #### `<.button_group>`
+
 Container for related action buttons.
 
 ```heex
@@ -240,6 +268,7 @@ Container for related action buttons.
 ```
 
 #### `<.tag_list>`
+
 Display a list of tags/badges.
 
 ```heex
@@ -247,6 +276,7 @@ Display a list of tags/badges.
 ```
 
 #### `<.code_block>`
+
 Display formatted code or preformatted text.
 
 ```heex
@@ -255,6 +285,7 @@ Display formatted code or preformatted text.
 ```
 
 #### `<.spinner>`
+
 Loading indicator.
 
 ```heex
@@ -263,6 +294,7 @@ Loading indicator.
 ```
 
 #### `<.divider>`
+
 Visual separator.
 
 ```heex
@@ -344,6 +376,7 @@ Visual separator.
 Xeno uses a **hybrid framework approach**:
 
 ### WebAwesome (Preferred)
+
 Use WebAwesome components (via our component library) for:
 - Layout primitives (container, stack, grid, split, flank)
 - Content components (cards, buttons, badges, alerts, modals)
@@ -352,6 +385,7 @@ Use WebAwesome components (via our component library) for:
 **Always prefer the internal UI Library components over directly using WebAwesome or writing custom HTML/CSS.**
 
 ### DaisyUI (Legacy - Forms Only)
+
 DaisyUI is still used for form components because:
 - Phoenix core components (`<.input>`, `<.form>`) work excellently with DaisyUI
 - Form components are stable and don't need refactoring
@@ -433,8 +467,8 @@ end
 ## Further Reading
 
 - **[Component Library Plan](../planning/component_library.md)** - Complete implementation details, architecture decisions, and refactoring roadmap
-- **WebAwesome Documentation** - https://webawesome.com/docs
-- **Font Awesome Icons** - https://fontawesome.com/icons
+- **WebAwesome Documentation** - <https://webawesome.com/docs>
+- **Font Awesome Icons** - <https://fontawesome.com/icons>
 
 ## Migration from Old Patterns
 

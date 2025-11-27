@@ -8,26 +8,19 @@
           <%= if @directory_connected do %>
           <%!-- FileSystemObserver Status Badge --%>
           <.stack gap={:m}>
-            <.alert variant={:success}>
+            <.button
+              id="disconnect-directory-btn"
+              phx-click="disconnect_directory"
+              variant={:success}
+              start_icon="circle-check"
+              end_icon="circle-xmark"
+            >
               Connected to folder{if @directory_name, do: ": #{@directory_name}", else: ""}
-            </.alert>
-              <.flank :if={@observer_supported} gap={:m}>
-                <.badge variant={:success}>
-                  <.icon name="eye" size="1rem" /> Auto-sync available
-                </.badge>
-                <.badge :if={@watching_enabled} variant={:primary}>
-                  <.icon name="eye" size="1rem"  class="animate-pulse"/> Watching for changes...
-                </.badge>
-              </.flank>
-              <.badge :if={!@observer_supported} variant={:neutral}>
-                <.icon name="circle-info" size="1rem" /> Auto-sync not supported (use manual import)
-              </.badge>
-          </.stack>
+            </.button>
 
-          <.button_group gap={:s} class="mt-2">
             <.button
               phx-click="export_all"
-              variant={:primary}
+              variant={:brand}
               disabled={@sync_status != :idle}
               loading={@sync_status == :exporting or match?({:exporting, _, _}, @sync_status)}
             >
@@ -46,7 +39,7 @@
             <.button
               id="import-btn"
               phx-click="scan_files"
-              variant={:secondary}
+              variant={:brand}
               disabled={@import_status != :idle}
               loading={@import_status == :scanning or match?({:importing, _, _}, @import_status)}
             >
@@ -63,38 +56,41 @@
               </:loading_content>
               Import Changes
             </.button>
-            <%!-- Auto-Sync Toggle Button (only if observer supported) --%>
-            <%= if @observer_supported do %>
+
+            <.badge :if={@observer_supported} variant={:success}>
+              <.icon name="eye" size="1rem" /> Auto-sync available
+            </.badge>
+
+            <.flank :if={@observer_supported} gap={:m}>
+
               <.button
                 :if={@watching_enabled}
                 id="stop-watching-btn"
                 phx-click="stop_watching"
-                variant={:soft}
+                variant={:brand}
+                start_icon="circle-pause"
               >
-                <.icon name="circle-pause" />
                 Pause Auto-Sync
               </.button>
               <.button
                 :if={!@watching_enabled}
                 id="start-watching-btn"
                 phx-click="start_watching"
-                variant={:primary}
+                variant={:brand}
+                start_icon="circle-play"
               >
-                <.icon name="circle-play" />
                 Enable Auto-Sync
               </.button>
-            <% end %>
+              <.badge :if={@watching_enabled} variant={:success}>
+                <.icon name="eye" size="1rem"  class="animate-pulse"/> Watching for changes...
+              </.badge>
+            </.flank>
+            <.badge :if={!@observer_supported} variant={:neutral}>
+              <.icon name="circle-info" size="1rem" /> Auto-sync not supported (use manual import)
+            </.badge>
+          </.stack>
 
-            <.button
-              id="disconnect-directory-btn"
-              phx-click="disconnect_directory"
-              variant={:ghost}
-            >
-              Disconnect Folder
-            </.button>
-          </.button_group>
-
-          <div class="text-sm opacity-70 mt-4">
+          <div class="text-sm opacity-70 mt-1">
             <p><strong>Export:</strong> Save notes from database to local files</p>
             <p><strong>Import:</strong> Load changes from local files back to database</p>
           </div>
@@ -125,7 +121,7 @@
           <% end %>
         <% else %>
           <.stack gap={:m}>
-            <.button phx-click="connect_directory" variant={:primary}>
+            <.button phx-click="connect_directory" variant={:brand} appearance={:filled}>
               Choose Folder
             </.button>
 
@@ -151,8 +147,9 @@
               </.heading>
               <.button
                 phx-click="clear_errors"
-                variant={:ghost}
-                size={:sm}
+                variant={:neutral}
+                appearance={:plain}
+                size={:small}
               >
                 Clear All
               </.button>
@@ -349,8 +346,9 @@
                       id="choose-server-btn"
                       phx-click="resolve_conflict"
                       phx-value-choice="server"
-                      variant={:primary}
-                      size={:sm}
+                      variant={:brand}
+                      appearance={:filled}
+                      size={:small}
                     >
                       Use This
                     </.button>
@@ -376,8 +374,9 @@
                         id="choose-local-btn"
                         phx-click="resolve_conflict"
                         phx-value-choice="local"
-                        variant={:secondary}
-                        size={:sm}
+                        variant={:neutral}
+                        appearance={:outlined}
+                        size={:small}
                       >
                         Use This
                       </.button>
@@ -404,8 +403,9 @@
                       id="choose-json-btn"
                       phx-click="resolve_conflict"
                       phx-value-choice="json"
-                      variant={:secondary}
-                      size={:sm}
+                      variant={:neutral}
+                      appearance={:outlined}
+                      size={:small}
                     >
                       Use This
                     </.button>
@@ -413,11 +413,12 @@
                 </.card>
               </.stack>
 
-              <.button_group gap={:m} class="justify-end">
+              <.button_group class="justify-end">
                 <.button
                   id="cancel-conflict-btn"
                   phx-click="cancel_conflict"
-                  variant={:ghost}
+                  variant={:neutral}
+                  appearance={:plain}
                 >
                   Cancel
                 </.button>
@@ -427,13 +428,14 @@
         <% end %>
 
         <.card level={2} title="Export Preview (Development)" subtitle="Preview what the exported files will look like without writing to disk.">
-          <.button_group gap={:m}>
+          <.button_group>
             <.button
               id="export-preview-btn"
               phx-click="export_preview"
               phx-value-note_id="64b3b4b0-ea00-43a4-901c-cb0294b66fe1"
-              variant={:secondary}
-              size={:sm}
+              variant={:neutral}
+              appearance={:outlined}
+              size={:small}
             >
               Preview Single Note
             </.button>
@@ -441,8 +443,9 @@
             <.button
               id="export-all-preview-btn"
               phx-click="export_all_preview"
-              variant={:secondary}
-              size={:sm}
+              variant={:neutral}
+              appearance={:outlined}
+              size={:small}
             >
               Preview All Notes
             </.button>

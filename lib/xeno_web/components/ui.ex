@@ -77,6 +77,7 @@ defmodule XenoWeb.Components.UI do
   - `XenoWeb.Components.CoreComponents` - Form components (input, select, etc.)
   """
   use Phoenix.Component
+  import XenoWeb.Components.Layout
 
   @doc """
   Semantic heading component with level-based styling.
@@ -160,7 +161,7 @@ defmodule XenoWeb.Components.UI do
 
       <.button>Click me</.button>
 
-      <.button variant={:secondary} size={:lg}>Large Button</.button>
+      <.button variant={:brand} appearance={:filled} size={:large}>Large Button</.button>
 
       <.button phx-click="save">Save</.button>
 
@@ -171,16 +172,23 @@ defmodule XenoWeb.Components.UI do
       <.button loading>
         Export
         <:loading_content>
-          <.spinner size={:sm} />
+          <.spinner size={:small} />
           Exporting {@current}/{@total}
         </:loading_content>
       </.button>
   """
-  attr :variant, :atom, default: :primary, values: [:primary, :secondary, :ghost, :soft]
-  attr :size, :atom, default: :md, values: [:sm, :md, :lg]
+  attr :variant, :atom, default: :neutral, values: [:neutral, :brand, :success, :warning, :danger]
+
+  attr :appearance, :atom,
+    default: :filled,
+    values: [:accent, :"filled-outlined", :filled, :outlined, :plain]
+
+  attr :size, :atom, default: :medium, values: [:small, :medium, :large]
   attr :loading, :boolean, default: false
   attr :loading_text, :string, default: nil
   attr :disabled, :boolean, default: false
+  attr :end_icon, :string, default: nil
+  attr :start_icon, :string, default: nil
   attr :class, :string, default: nil
   attr :rest, :global, include: ~w(phx-click phx-value-id id)
   slot :inner_block, required: true
@@ -193,27 +201,33 @@ defmodule XenoWeb.Components.UI do
       end)
 
     ~H"""
-    <wa-button
-      id={@computed_id}
-      variant={@variant}
-      size={@size}
-      loading={@loading && true}
-      disabled={@disabled && true}
-      class={@class}
-      {@rest}
-    >
       <%= cond do %>
-        <% @loading && @loading_content != [] -> %>
-          {render_slot(@loading_content)}
-        <% @loading && @loading_text -> %>
-          <wa-spinner slot="prefix" />
-          {@loading_text}
-        <% @loading -> %>
-          <wa-spinner slot="prefix" />
-          {render_slot(@inner_block)}
+        <% @loading_content != [] || @loading_text -> %>
+          <.flank>
+            {wabutton(assigns)}
+            <.alert :if={@loading} variant={@variant} appearance={@appearance} size={@size} >
+              <%= cond do %>
+                <% @loading_content != [] -> %>
+                  {render_slot(@loading_content)}
+                <%  @loading_text -> %>
+                  {@loading_text}
+              <% end %>
+            </.alert>
+          </.flank>
         <% true -> %>
-          {render_slot(@inner_block)}
+          {wabutton(assigns)}
       <% end %>
+    """
+  end
+
+  def wabutton(assigns) do
+    ~H"""
+    <wa-button id={@computed_id} variant={to_string(@variant)}
+      appearance={to_string(@appearance)} size={to_string(@size)}
+      loading={@loading} disabled={@disabled} class={@class} {@rest}>
+      {render_slot(@inner_block)}
+      <.icon :if={@start_icon} name={@start_icon} slot="start" />
+      <.icon :if={@end_icon} name={@end_icon} slot="end" />
     </wa-button>
     """
   end
@@ -408,9 +422,13 @@ defmodule XenoWeb.Components.UI do
         Custom icon alert
       </.alert>
   """
-  attr :variant, :atom,
-    default: :info,
-    values: [:info, :success, :warning, :danger, :brand]
+  attr :variant, :atom, default: :neutral, values: [:neutral, :brand, :success, :warning, :danger]
+
+  attr :appearance, :atom,
+    default: :filled,
+    values: [:accent, :"filled-outlined", :filled, :outlined, :plain]
+
+  attr :size, :atom, default: :medium, values: [:small, :medium, :large]
 
   attr :closable, :boolean, default: false
   attr :class, :string, default: nil
@@ -420,7 +438,7 @@ defmodule XenoWeb.Components.UI do
 
   def alert(assigns) do
     ~H"""
-    <wa-callout variant={@variant} closable={@closable && true} class={@class} {@rest}>
+    <wa-callout variant={@variant} size={@size} appearance={@appearance} closable={@closable && true} class={@class} {@rest}>
       <%= if @icon != [] do %>
         {render_slot(@icon)}
       <% else %>
@@ -433,11 +451,11 @@ defmodule XenoWeb.Components.UI do
     """
   end
 
-  defp default_alert_icon(:info), do: "circle-info"
+  defp default_alert_icon(:neutral), do: "circle-info"
   defp default_alert_icon(:success), do: "check-circle"
   defp default_alert_icon(:warning), do: "exclamation-triangle"
   defp default_alert_icon(:danger), do: "xmark-circle"
-  defp default_alert_icon(:brand), do: nil
+  defp default_alert_icon(:brand), do: "circle-info"
 
   @doc """
   Page header component with title, subtitle, and actions.
@@ -495,22 +513,17 @@ defmodule XenoWeb.Components.UI do
         <.button>Action 2</.button>
       </.button_group>
   """
-  attr :gap, :atom, default: :m, values: [:s, :m, :l]
   attr :class, :string, default: nil
   attr :rest, :global
   slot :inner_block, required: true
 
   def button_group(assigns) do
     ~H"""
-    <div class={["flex flex-wrap", button_group_gap(@gap), @class]} {@rest}>
+    <wa-button-group class={@class} {@rest}>
       {render_slot(@inner_block)}
-    </div>
+    </wa-button-group>
     """
   end
-
-  defp button_group_gap(:s), do: "gap-1"
-  defp button_group_gap(:m), do: "gap-2"
-  defp button_group_gap(:l), do: "gap-4"
 
   @doc """
   Renders a list of tags/badges.

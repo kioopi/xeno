@@ -193,7 +193,7 @@ defmodule XenoWeb.Components.UITest do
         """)
 
       assert html =~ ~r/<wa-button/
-      assert html =~ ~r/variant="primary"/
+      assert html =~ ~r/variant="neutral"/
       assert html =~ "Click me"
     end
 
@@ -280,7 +280,6 @@ defmodule XenoWeb.Components.UITest do
         <UI.button loading>Loading...</UI.button>
         """)
 
-      assert html =~ ~r/<wa-spinner/
       assert html =~ ~r/loading/
     end
 
@@ -336,7 +335,6 @@ defmodule XenoWeb.Components.UITest do
         <UI.button loading loading_text="Exporting...">Export</UI.button>
         """)
 
-      assert html =~ ~r/<wa-spinner/
       assert html =~ "Exporting..."
     end
 
@@ -348,7 +346,6 @@ defmodule XenoWeb.Components.UITest do
         <UI.button loading>Save Changes</UI.button>
         """)
 
-      assert html =~ ~r/<wa-spinner/
       assert html =~ "Save Changes"
     end
 
@@ -411,7 +408,6 @@ defmodule XenoWeb.Components.UITest do
         <UI.button loading>Wait</UI.button>
         """)
 
-      assert html =~ ~r/<wa-spinner/
       assert html =~ ~r/loading/
       assert html =~ "Wait"
     end
@@ -832,7 +828,7 @@ defmodule XenoWeb.Components.UITest do
   end
 
   describe "alert/1" do
-    test "renders with default info variant" do
+    test "renders with default regular variant" do
       assigns = %{}
 
       html =
@@ -843,7 +839,7 @@ defmodule XenoWeb.Components.UITest do
         """)
 
       assert html =~ ~r/<wa-callout/
-      assert html =~ ~r/variant="info"/
+      assert html =~ ~r/variant="regular"/
       assert html =~ "Information message"
     end
 
@@ -949,12 +945,12 @@ defmodule XenoWeb.Components.UITest do
       assert html =~ "Custom icon message"
     end
 
-    test "info variant renders default circle-info icon" do
+    test "brand variant renders default circle-info icon" do
       assigns = %{}
 
       html =
         rendered_to_string(~H"""
-        <UI.alert variant={:info}>
+        <UI.alert variant={:brand}>
           Info message
         </UI.alert>
         """)
@@ -1003,20 +999,6 @@ defmodule XenoWeb.Components.UITest do
 
       assert html =~ ~r/name="xmark-circle"/
       assert html =~ "Danger message"
-    end
-
-    test "brand variant renders without default icon" do
-      assigns = %{}
-
-      html =
-        rendered_to_string(~H"""
-        <UI.alert variant={:brand}>
-          Brand message
-        </UI.alert>
-        """)
-
-      assert html =~ "Brand message"
-      refute html =~ ~r/<wa-icon/
     end
 
     test "custom icon slot overrides default icon" do
@@ -1129,7 +1111,7 @@ defmodule XenoWeb.Components.UITest do
   end
 
   describe "button_group/1" do
-    test "renders children with default gap" do
+    test "renders children" do
       assigns = %{}
 
       html =
@@ -1142,47 +1124,6 @@ defmodule XenoWeb.Components.UITest do
 
       assert html =~ "Save"
       assert html =~ "Cancel"
-      assert html =~ ~r/flex/
-      assert html =~ ~r/gap-2/
-    end
-
-    test "renders children with small gap" do
-      assigns = %{}
-
-      html =
-        rendered_to_string(~H"""
-        <UI.button_group gap={:s}>
-          <button>Button</button>
-        </UI.button_group>
-        """)
-
-      assert html =~ ~r/gap-1/
-    end
-
-    test "renders children with large gap" do
-      assigns = %{}
-
-      html =
-        rendered_to_string(~H"""
-        <UI.button_group gap={:l}>
-          <button>Button</button>
-        </UI.button_group>
-        """)
-
-      assert html =~ ~r/gap-4/
-    end
-
-    test "uses flex layout" do
-      assigns = %{}
-
-      html =
-        rendered_to_string(~H"""
-        <UI.button_group>
-          <button>Button</button>
-        </UI.button_group>
-        """)
-
-      assert html =~ ~r/flex/
     end
 
     test "applies custom class" do
