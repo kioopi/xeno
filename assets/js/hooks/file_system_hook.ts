@@ -677,12 +677,16 @@ export const FileSystemHook: TFileSystemHook = {
             const basePath = path.replace(/\.md$/, '');
             changedPaths.add(basePath);
             console.log(`  ✏️  Changed: ${path} (type: ${record.type})`);
+          } else if (path.endsWith('.json')) {
+            const basePath = path.replace(/\.json$/, '');
+            changedPaths.add(basePath);
+            console.log(`  📝 Changed: ${path} (type: ${record.type})`);
           }
         }
       }
 
       if (changedPaths.size === 0) {
-        console.log('  ℹ️  No markdown files changed, skipping import');
+        console.log('  ℹ️  No note files changed, skipping import');
         return;
       }
 

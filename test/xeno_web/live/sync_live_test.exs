@@ -1675,4 +1675,160 @@ defmodule XenoWeb.SyncLiveTest do
       refute has_element?(view, "#stop-watching-btn")
     end
   end
+
+  describe "JSON-only metadata updates" do
+    test "imports metadata changes from JSON file only (name change)", %{conn: conn} do
+      directory = generate(directory(path: "test"))
+      note_type = generate(note_type(name: "Note"))
+
+      note =
+        generate(
+          note(
+            name: "Test Note",
+            text: "Original content",
+            version: 1,
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
+        )
+      {:ok, view, _html} = live(conn, ~p"/sync")
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+
+      changes = [
+        %{
+          "id" => note.id,
+          "markdown_content" => note.text,
+          "version" => note.version,
+          "name" => "Updated Name via JSON"
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      html = render(view)
+      assert html =~ "Successfully imported 1 note"
+
+      {:ok, updated} = Xeno.Content.Note.get(note.id)
+      assert updated.text == note.text
+      assert updated.name == "Updated Name via JSON"
+    end
+
+    test "imports metadata changes from JSON file only (tags change)", %{conn: conn} do
+      directory = generate(directory(path: "test"))
+      note_type = generate(note_type(name: "Note"))
+
+      note =
+        generate(
+          note(
+            name: "Test Note",
+            text: "Original content",
+            version: 1,
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
+        )
+      {:ok, view, _html} = live(conn, ~p"/sync")
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+
+      changes = [
+        %{
+          "id" => note.id,
+          "markdown_content" => note.text,
+          "version" => note.version,
+          "tags" => ["metadata-only", "json-update"]
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      html = render(view)
+      assert html =~ "Successfully imported 1 note"
+
+      {:ok, updated} = Xeno.Content.Note.get(note.id)
+      assert updated.text == note.text
+      assert "metadata-only" in updated.tags
+      assert "json-update" in updated.tags
+    end
+
+    test "imports metadata changes from JSON file only (data change)", %{conn: conn} do
+      directory = generate(directory(path: "test"))
+      note_type = generate(note_type(name: "Note"))
+
+      note =
+        generate(
+          note(
+            name: "Test Note",
+            text: "Original content",
+            version: 1,
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
+        )
+      {:ok, view, _html} = live(conn, ~p"/sync")
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+
+      custom_data = %{"priority" => "high", "status" => "in-progress"}
+
+      changes = [
+        %{
+          "id" => note.id,
+          "markdown_content" => note.text,
+          "version" => note.version,
+          "data" => custom_data
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      html = render(view)
+      assert html =~ "Successfully imported 1 note"
+
+      {:ok, updated} = Xeno.Content.Note.get(note.id)
+      assert updated.text == note.text
+      assert updated.data == custom_data
+    end
+
+    test "imports combined metadata changes (name, tags, and data)", %{conn: conn} do
+      directory = generate(directory(path: "test"))
+      note_type = generate(note_type(name: "Note"))
+
+      note =
+        generate(
+          note(
+            name: "Test Note",
+            text: "Original content",
+            version: 1,
+            directory_id: directory.id,
+            note_type_id: note_type.id
+          )
+        )
+      {:ok, view, _html} = live(conn, ~p"/sync")
+      render_hook(view, "directory_connected", %{"name" => "TestFolder"})
+
+      custom_data = %{"reviewed" => true}
+
+      changes = [
+        %{
+          "id" => note.id,
+          "markdown_content" => note.text,
+          "version" => note.version,
+          "name" => "Fully Updated Note",
+          "tags" => ["complete", "reviewed"],
+          "data" => custom_data
+        }
+      ]
+
+      render_hook(view, "import_files", %{"changes" => changes})
+
+      html = render(view)
+      assert html =~ "Successfully imported 1 note"
+
+      {:ok, updated} = Xeno.Content.Note.get(note.id)
+      assert updated.text == note.text
+      assert updated.name == "Fully Updated Note"
+      assert "complete" in updated.tags
+      assert "reviewed" in updated.tags
+      assert updated.data == custom_data
+    end
+  end
 end
