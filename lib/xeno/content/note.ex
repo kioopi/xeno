@@ -179,6 +179,7 @@ defmodule Xeno.Content.Note do
 
     publish :create, "created"
     publish :update, ["updated", ["updated", :id]]
+    publish :update_from_fs, ["updated", ["updated", :id]]
     publish :destroy, "destroyed"
   end
 
