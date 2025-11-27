@@ -87,6 +87,28 @@ npm run test:coverage # With coverage report
 
 See [`docs/typescript-setup.md`](docs/typescript-setup.md) for more details on the TypeScript setup.
 
+## Component Library
+
+Xeno uses a custom component library built on WebAwesome and Tailwind CSS for consistent, declarative UI development. The library provides semantic components for layouts, buttons, cards, alerts, modals, and more.
+
+See [`docs/component_library.md`](docs/component_library.md) for the complete usage guide.
+
+**Quick example:**
+
+```heex
+<.container>
+  <.stack gap={:xl}>
+    <.heading level={1}>Page Title</.heading>
+    <.card title="Section">
+      Content here
+      <:actions>
+        <.button phx-click="save">Save</.button>
+      </:actions>
+    </.card>
+  </.stack>
+</.container>
+```
+
 ### Alternative: Single Terminal
 
 If you prefer a single terminal, start with:

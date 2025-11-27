@@ -30,7 +30,8 @@ custom classes must fully style the input
 
 - **Always use and maintain this import syntax** in the app.css file for projects generated with `phx.new`
 - **Never** use `@apply` when writing raw css
-- **Always** manually write your own tailwind-based components instead of using daisyUI for a unique, world-class design
+- **Always use the internal UI Component Library** (`XenoWeb.Components.UI` and `XenoWeb.Components.Layout`) for UI elements instead of manually writing Tailwind classes or using DaisyUI components
+- DaisyUI is only used for form inputs (via `core_components.ex`) - for all other UI, use the component library
 - Out of the box **only the app.js and app.css bundles are supported**
   - You cannot reference an external vendor'd script `src` or link `href` in the layouts
   - You must import the vendor deps into app.js and app.css to use them
@@ -42,6 +43,18 @@ custom classes must fully style the input
 - Implement **subtle micro-interactions** (e.g., button hover effects, and smooth transitions)
 - Ensure **clean typography, spacing, and layout balance** for a refined, premium look
 - Focus on **delightful details** like hover effects, loading states, and smooth page transitions
+
+### Component Library guidelines
+
+- **Always use the internal UI Component Library** defined in `XenoWeb.Components.UI` and `XenoWeb.Components.Layout` for all UI elements
+- **Never create ad-hoc UI components directly in LiveViews or templates** - add reusable patterns to the shared component library instead
+- **Prefer declarative components over manual HTML/Tailwind classes** - e.g., use `<.button>`, `<.card>`, `<.stack>` instead of writing `<div class="...">`
+- **Never use DaisyUI components directly** except for form inputs (which use `core_components.ex`)
+- The component library provides: layout primitives (`<.container>`, `<.stack>`, `<.grid>`, etc.), UI components (`<.button>`, `<.card>`, `<.alert>`, `<.modal>`, etc.), and icons (`<.icon>`)
+- All components support the `class` attribute for custom styling when needed, but avoid excessive style overrides
+- Components with `phx-click` events automatically generate test IDs (e.g., `phx-click="save_data"` → `id="save-data-btn"`)
+- Maintain proper semantic heading hierarchy using the `level` prop on `<.heading>` and container components
+- See `docs/component_library.md` for complete usage guide and examples
 
 <!-- usage-rules-start -->
 

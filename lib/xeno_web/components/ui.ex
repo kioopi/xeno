@@ -1,6 +1,80 @@
 defmodule XenoWeb.Components.UI do
   @moduledoc """
-  Provides UI components.
+  UI components built on WebAwesome for consistent, accessible user interfaces.
+
+  This module provides a comprehensive set of UI primitives that wrap WebAwesome
+  web components and provide a declarative Phoenix Component API. All components
+  support Tailwind CSS classes via the `class` attribute and pass-through
+  attributes via `@rest`.
+
+  ## Available Components
+
+  ### Basic Components
+  - `heading/1` - Semantic headings with level-based styling (h1-h6)
+  - `icon/1` - Icons supporting both Font Awesome and legacy hero icons
+  - `button/1` - Buttons with variants, loading states, and auto test-id generation
+  - `badge/1` - Status indicators and tags with multiple variants
+  - `spinner/1` - Loading indicators with size variants
+  - `divider/1` - Visual separators (horizontal or vertical)
+
+  ### Container Components
+  - `card/1` - Content containers with optional header, footer, and actions
+  - `alert/1` - Status messages with default icons per variant
+  - `modal/1` - Dialog overlays for focused interactions
+
+  ### Composite Components
+  - `page_header/1` - Page title sections with optional subtitle and actions
+  - `button_group/1` - Grouped action buttons with consistent spacing
+  - `tag_list/1` - Display lists of tags/badges
+  - `code_block/1` - Formatted code or preformatted text display
+
+  ## Design Principles
+
+  1. **Declarative API**: Components describe *what* things are, not *how* they look
+  2. **Semantic HTML**: Proper heading hierarchy and accessible markup
+  3. **Auto Test IDs**: Buttons with `phx-click` auto-generate test IDs
+  4. **Consistent Styling**: All components use WebAwesome design system
+  5. **Composability**: Components work together seamlessly
+
+  ## Common Patterns
+
+  ### Button with Loading State
+      <.button phx-click="save" loading={@saving}>
+        Save Changes
+      </.button>
+
+  ### Card with Header and Actions
+      <.card level={2} title="Section Title" subtitle="Description">
+        Main content
+        <:actions>
+          <.button>Save</.button>
+        </:actions>
+      </.card>
+
+  ### Alert with Icon
+      <.alert variant={:success}>
+        Operation completed successfully!
+      </.alert>
+
+  ### Modal Dialog
+      <.modal open={@show_modal} title="Confirm">
+        Are you sure?
+        <:actions>
+          <.button phx-click="confirm">Yes</.button>
+          <.button phx-click="cancel" variant={:ghost}>Cancel</.button>
+        </:actions>
+      </.modal>
+
+  ## Testing
+
+  All components generate stable DOM structure suitable for testing. Buttons
+  with `phx-click` events automatically generate IDs like `{action}-btn` for
+  easy selector targeting in tests.
+
+  ## See Also
+
+  - `XenoWeb.Components.Layout` - Layout primitives (container, stack, grid, etc.)
+  - `XenoWeb.Components.CoreComponents` - Form components (input, select, etc.)
   """
   use Phoenix.Component
 

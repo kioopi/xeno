@@ -1146,7 +1146,7 @@ defmodule XenoWeb.Components.UITest do
       assert html =~ ~r/gap-2/
     end
 
-    test "renders children with custom gap" do
+    test "renders children with small gap" do
       assigns = %{}
 
       html =
@@ -1157,6 +1157,19 @@ defmodule XenoWeb.Components.UITest do
         """)
 
       assert html =~ ~r/gap-1/
+    end
+
+    test "renders children with large gap" do
+      assigns = %{}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.button_group gap={:l}>
+          <button>Button</button>
+        </UI.button_group>
+        """)
+
+      assert html =~ ~r/gap-4/
     end
 
     test "uses flex layout" do
