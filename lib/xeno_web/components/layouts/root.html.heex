@@ -20,20 +20,31 @@
     <script>
       (() => {
         const setTheme = (theme) => {
+          const html = document.documentElement
           if (theme === "system") {
-            localStorage.removeItem("phx:theme");
-            document.documentElement.removeAttribute("data-theme");
+            localStorage.removeItem("phx:theme")
+            html.removeAttribute("data-theme")
           } else {
-            localStorage.setItem("phx:theme", theme);
-            document.documentElement.setAttribute("data-theme", theme);
+            localStorage.setItem("phx:theme", theme)
+            html.setAttribute("data-theme", theme)
+            // WebAwesome dark mode support
+            html.classList.toggle('wa-dark', theme === 'dark')
+            setThemeToggle(theme)
           }
         };
+
+        const setThemeToggle = (theme) =>
+           document.getElementById("theme-toggle")?.classList.toggle("swap-active", theme === "dark")
+
         if (!document.documentElement.hasAttribute("data-theme")) {
-          setTheme(localStorage.getItem("phx:theme") || "system");
+          setTheme(localStorage.getItem("phx:theme") || "system")
         }
         window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
         
-        window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
+        window.addEventListener("phx:set-theme", ({ target }) => {
+          const theme = target.dataset.phxTheme
+          setTheme(theme)
+        });
       })();
     </script>
   </head>

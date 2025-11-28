@@ -18,7 +18,8 @@ defmodule XenoWeb.Router do
     pipe_through :browser
 
     # get "/", PageController, :home
-    live "/", InfoLive
+    live "/", StartLive
+    live "/info", InfoLive
 
     live "/notes/:id", NoteShowLive
     live "/notes/:id/edit", NoteEditLive

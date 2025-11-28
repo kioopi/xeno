@@ -311,6 +311,12 @@ defmodule Xeno.Files.Directory do
       sort path_ltree: :desc
       description "The list of descendant directories contained by this directory at any level"
     end
+
+    has_many :notes, Xeno.Content.Note do
+      public? true
+      description "The notes in this directory"
+      sort updated_at: :desc
+    end
   end
 
   calculations do

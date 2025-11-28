@@ -134,6 +134,7 @@ defmodule XenoWeb.Components.UI do
 
   attr :size, :string, default: nil
   attr :class, :string, default: nil
+  attr :family, :string, default: nil
   attr :rest, :global
 
   def icon(%{name: "hero-" <> _} = assigns) do
@@ -148,6 +149,7 @@ defmodule XenoWeb.Components.UI do
       name={@name}
       variant={@variant}
       class={@class}
+      family={@family}
       style={@size && "font-size: #{@size}"}
       {@rest}
     />
@@ -201,30 +203,37 @@ defmodule XenoWeb.Components.UI do
       end)
 
     ~H"""
-      <%= cond do %>
-        <% @loading_content != [] || @loading_text -> %>
-          <.flank>
-            {wabutton(assigns)}
-            <.alert :if={@loading} variant={@variant} appearance={@appearance} size={@size} >
-              <%= cond do %>
-                <% @loading_content != [] -> %>
-                  {render_slot(@loading_content)}
-                <%  @loading_text -> %>
-                  {@loading_text}
-              <% end %>
-            </.alert>
-          </.flank>
-        <% true -> %>
+    <%= cond do %>
+      <% @loading_content != [] || @loading_text -> %>
+        <.flank>
           {wabutton(assigns)}
-      <% end %>
+          <.alert :if={@loading} variant={@variant} appearance={@appearance} size={@size}>
+            <%= cond do %>
+              <% @loading_content != [] -> %>
+                {render_slot(@loading_content)}
+              <% @loading_text -> %>
+                {@loading_text}
+            <% end %>
+          </.alert>
+        </.flank>
+      <% true -> %>
+        {wabutton(assigns)}
+    <% end %>
     """
   end
 
   def wabutton(assigns) do
     ~H"""
-    <wa-button id={@computed_id} variant={to_string(@variant)}
-      appearance={to_string(@appearance)} size={to_string(@size)}
-      loading={@loading} disabled={@disabled} class={@class} {@rest}>
+    <wa-button
+      id={@computed_id}
+      variant={to_string(@variant)}
+      appearance={to_string(@appearance)}
+      size={to_string(@size)}
+      loading={@loading}
+      disabled={@disabled}
+      class={@class}
+      {@rest}
+    >
       {render_slot(@inner_block)}
       <.icon :if={@start_icon} name={@start_icon} slot="start" />
       <.icon :if={@end_icon} name={@end_icon} slot="end" />
@@ -438,7 +447,14 @@ defmodule XenoWeb.Components.UI do
 
   def alert(assigns) do
     ~H"""
-    <wa-callout variant={@variant} size={@size} appearance={@appearance} closable={@closable && true} class={@class} {@rest}>
+    <wa-callout
+      variant={@variant}
+      size={@size}
+      appearance={@appearance}
+      closable={@closable && true}
+      class={@class}
+      {@rest}
+    >
       <%= if @icon != [] do %>
         {render_slot(@icon)}
       <% else %>

@@ -99,6 +99,18 @@
 /* Use the data attribute for dark mode  */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
+:root {
+  color-scheme: light dark;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session],
 [data-phx-teleported-src] {
@@ -174,4 +186,9 @@ wa-tag {
     margin-right: var(--wa-space-2xs);
     vertical-align: middle;
   }
+}
+
+/* Disable the expand/collapse animation for wa-tree icons */
+.custom-icons wa-tree-item::part(expand-button) {
+  rotate: none;
 }

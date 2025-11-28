@@ -5,14 +5,12 @@ defmodule XenoWeb.Features.WebAwesomeTreeTest do
   TDD tests for WebAwesome tree component implementation.
 
   These tests drive the implementation of a WebAwesome-based directory tree
-  that will be displayed alongside the existing HTML <details> tree for
-  comparison.
   """
 
   describe "WebAwesome tree component" do
     test "renders wa-tree element on the page" do
       build_conn()
-      |> visit("/")
+      |> visit("/info")
       |> assert_has("wa-tree#webawesome-directory-tree")
     end
 
@@ -23,7 +21,7 @@ defmodule XenoWeb.Features.WebAwesomeTreeTest do
 
       session =
         build_conn()
-        |> visit("/")
+        |> visit("/info")
 
       # Assert we have tree items (using the user-friendly names which have caps and spaces)
       session
@@ -39,7 +37,7 @@ defmodule XenoWeb.Features.WebAwesomeTreeTest do
 
       session =
         build_conn()
-        |> visit("/")
+        |> visit("/info")
 
       # Assert we have both levels in the tree
       session
