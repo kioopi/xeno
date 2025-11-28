@@ -8,6 +8,6 @@ defmodule XenoWeb.Features.SmokeTest do
   test "can load the home page" do
     build_conn()
     |> visit("/")
-    |> assert_has("h1", text: "Xeno Installation Information")
+    |> assert_has("h1", text: "Welcome to Xeno")
   end
 end

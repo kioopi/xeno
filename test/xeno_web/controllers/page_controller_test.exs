@@ -2,12 +2,11 @@ defmodule XenoWeb.PageControllerTest do
   use XenoWeb.ConnCase
 
   setup do
-    notes_dir = Xeno.notes_dir()
-    Xeno.Files.Directory.create!(notes_dir, %{name: "root"})
+    Xeno.Files.Directory.create!("test/root", %{name: "root"})
     :ok
   end
 
-  # this is actually not loading PageController but InfoLive
+  # this is actually not loading PageController but StartLive
   # We'll leave it like that for now. There might be pages in the future.
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")

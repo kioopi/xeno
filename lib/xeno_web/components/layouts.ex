@@ -38,27 +38,27 @@ defmodule XenoWeb.Layouts do
     <header class="navbar px-4 sm:px-6 lg:px-8">
       <div class="flex-1">
         <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
+          <.icon name="note-sticky" variant={:regular} /> ζήνω
         </a>
       </div>
       <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
-          </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://hexdocs.pm/phoenix/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
-          </li>
-        </ul>
+        <nav
+          aria-label="Footer"
+          class="-mb-6 flex flex-wrap justify-center gap-x-12 gap-y-3 text-sm/6"
+        >
+          <.link
+            navigate={~p"/info"}
+            class="text-slate-900 hover:underline hover:text-slate-600 dark:text-gray-400 dark:hover:text-white"
+          >
+            Info
+          </.link>
+          <.link
+            navigate={~p"/sync"}
+            class="text-slate-900 hover:underline hover:text-slate-600 dark:text-gray-400 dark:hover:text-white"
+          >
+            Sync
+          </.link>
+        </nav>
       </div>
     </header>
 
@@ -67,6 +67,40 @@ defmodule XenoWeb.Layouts do
         {render_slot(@inner_block)}
       </div>
     </main>
+
+    <footer>
+      <div class="mx-auto max-w-7xl overflow-hidden px-6 py-20 sm:py-24 lg:px-8">
+        <nav
+          aria-label="Footer"
+          class="-mb-6 flex flex-wrap justify-center gap-x-12 gap-y-3 text-sm/6"
+        >
+          <a
+            href="https://phoenixframework.org/"
+            class="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+          >
+            <.icon name="phoenix-framework" family="brands" /> Phoenix
+            <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
+          </a>
+
+          <a
+            href="https://hexdocs.pm/phoenix/overview.html"
+            class="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+          >
+            <wa-icon src="https://hexdocs.pm/images/hexdocs-logo.svg" class="grayscale"></wa-icon>
+            Phoenix Docs
+          </a>
+
+          <a
+            href="https://github.com/kioopi/xeno"
+            class="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+          >
+            <.icon name="github" family="brands" /> Xeno
+          </a>
+
+          <.theme_toggle />
+        </nav>
+      </div>
+    </footer>
 
     <.flash_group flash={@flash} />
     """
@@ -122,33 +156,34 @@ defmodule XenoWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
+    <label
+      class="swap swap-rotate text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+      id="theme-toggle"
+    >
+      <.theme_button theme="dark" icon="sun" swap="on" />
+      <.theme_button theme="light" icon="moon" swap="off" />
+    </label>
+    """
+  end
 
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="system"
-      >
-        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
+  attr :theme, :string, required: true, values: ["light", "dark"]
+  attr :icon, :string, default: "sun"
+  attr :swap, :string, required: true, values: ["on", "off"]
 
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="light"
+  def theme_button(assigns) do
+    ~H"""
+    <button
+      phx-click={JS.dispatch("phx:set-theme")}
+      data-phx-theme={@theme}
+      class={["swap-" <> @swap, "h-auto"]}
+    >
+      <wa-icon
+        name={@icon}
+        variant={:regular}
+        label="Choose dark theme"
       >
-        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="dark"
-      >
-        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-    </div>
+      </wa-icon>
+    </button>
     """
   end
 end

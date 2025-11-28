@@ -1,0 +1,14 @@
+<Layouts.app flash={@flash}>
+  <.container>
+    <.stack gap={:xl}>
+      <.page_header
+        title="Welcome to Xeno"
+        subtitle="Your quick launchpad for notes and system pages"
+      />
+
+      <.card level={2} title="Notes">
+        <Navigation.note_tree directories={@note_tree} />
+      </.card>
+    </.stack>
+  </.container>
+</Layouts.app>

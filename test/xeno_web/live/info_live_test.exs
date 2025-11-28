@@ -4,20 +4,20 @@ defmodule XenoWeb.InfoLiveTest do
   import Phoenix.LiveViewTest
 
   setup do
-    notes_dir = Xeno.notes_dir()
-    Xeno.Files.Directory.create!(notes_dir, %{name: "root"})
+    # notes_dir = Xeno.notes_dir()
+    Xeno.Files.Directory.create!("test/root", %{name: "root"})
     # Xeno.Files.create_directories_from_filesystem!(notes_dir)
     :ok
   end
 
   test "displays Xeno installation information", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/")
+    {:ok, view, _html} = live(conn, ~p"/info")
 
     assert has_element?(view, "h1", "Xeno Installation Information")
   end
 
   test "displays the notes directory path", %{conn: conn} do
-    {:ok, view, _html} = live(conn, ~p"/")
+    {:ok, view, _html} = live(conn, ~p"/info")
 
     assert view |> element("dd") |> render() =~ Xeno.notes_dir()
 
@@ -26,14 +26,14 @@ defmodule XenoWeb.InfoLiveTest do
 
   describe "page structure" do
     test "displays main heading", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/info")
 
       # Should have exactly one h1
       assert has_element?(view, "h1", "Xeno Installation Information")
     end
 
     test "displays notes directory section", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/info")
 
       # Should show the label
       assert has_element?(view, "dt", "Notes Directory")
@@ -42,7 +42,7 @@ defmodule XenoWeb.InfoLiveTest do
     end
 
     test "displays both file tree implementations", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/info")
 
       # Should have two column headers
       assert has_element?(view, "h2", "Current Implementation (HTML Details)")
@@ -50,7 +50,7 @@ defmodule XenoWeb.InfoLiveTest do
     end
 
     test "sections are properly spaced", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/info")
 
       html = render(view)
       # Main sections should exist in order
@@ -63,7 +63,7 @@ defmodule XenoWeb.InfoLiveTest do
 
   describe "auto-refresh" do
     test "automatically shows new directory when created", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/info")
 
       # Initially no directory with this name
       refute has_element?(view, "details", "Newtestdir")
@@ -79,7 +79,7 @@ defmodule XenoWeb.InfoLiveTest do
       # Create root directory first
       _root = Xeno.Files.Directory.create!("parentroot")
 
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/info")
 
       # Root should be visible
       assert has_element?(view, "details", "Parentroot")
@@ -96,7 +96,7 @@ defmodule XenoWeb.InfoLiveTest do
     end
 
     test "verifies pubsub broadcast actually happens and LiveView receives it", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/info")
 
       # Subscribe to the same topic as LiveView
       Phoenix.PubSub.subscribe(Xeno.PubSub, "directory:created")
@@ -121,7 +121,7 @@ defmodule XenoWeb.InfoLiveTest do
     test "automatically updates directory name when changed", %{conn: conn} do
       directory = Xeno.Files.Directory.create!("oldname")
 
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/info")
 
       # Directory name is auto-generated from path, check what it actually is
       assert has_element?(view, "summary", directory.name)
@@ -144,7 +144,7 @@ defmodule XenoWeb.InfoLiveTest do
       root2 = Xeno.Files.Directory.create!("moveto")
       child = Xeno.Files.Directory.create!("movefrom/movechild")
 
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/info")
 
       # Move the child  (triggers PubSub broadcast)
       Xeno.Files.Directory.move!(child, %{path: "moveto/movechild"})
@@ -164,7 +164,7 @@ defmodule XenoWeb.InfoLiveTest do
     test "automatically removes directory when destroyed", %{conn: conn} do
       directory = Xeno.Files.Directory.create!("tempdir")
 
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/info")
       assert has_element?(view, "summary", directory.name)
 
       # Destroy directory (triggers PubSub broadcast)
@@ -181,7 +181,7 @@ defmodule XenoWeb.InfoLiveTest do
       root = Xeno.Files.Directory.create!("destroyroot")
       child = Xeno.Files.Directory.create!("destroyroot/destroychild")
 
-      {:ok, view, _html} = live(conn, ~p"/")
+      {:ok, view, _html} = live(conn, ~p"/info")
 
       # Both should be visible
       assert has_element?(view, "summary", root.name)
