@@ -12,8 +12,8 @@
 
       <.tag_list :if={@note.tags} tags={@note.tags} variant={:primary} />
 
-      <.card :if={@note.text} level={2} title="Content">
-        <.code_block content={@note.text} />
+      <.card :if={@note.html} level={2} title="Content">
+        <.prose html={@note.html} />
       </.card>
 
       <.card :if={@note.data && @note.data != %{}} level={2} title="Data">

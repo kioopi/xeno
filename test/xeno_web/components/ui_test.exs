@@ -1486,4 +1486,84 @@ defmodule XenoWeb.Components.UITest do
       assert html =~ ~r/id="cancel-btn"/
     end
   end
+
+  describe "prose/1" do
+    test "renders HTML content safely" do
+      assigns = %{html: "<p>Hello <strong>world</strong></p>"}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.prose html={@html} />
+        """)
+
+      assert html =~ "<p>Hello <strong>world</strong></p>"
+    end
+
+    test "wraps content in wa-card container" do
+      assigns = %{html: "<p>Test</p>"}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.prose html={@html} />
+        """)
+
+      assert html =~ "wa-card"
+    end
+
+    test "applies prose styling classes" do
+      assigns = %{html: "<p>Test</p>"}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.prose html={@html} />
+        """)
+
+      assert html =~ "prose"
+    end
+
+    test "applies custom classes" do
+      assigns = %{html: "<p>Test</p>"}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.prose html={@html} class="custom-class" />
+        """)
+
+      assert html =~ "custom-class"
+    end
+
+    test "handles nil html gracefully" do
+      assigns = %{html: nil}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.prose html={@html} />
+        """)
+
+      assert html == "" or html =~ "wa-card"
+    end
+
+    test "handles empty string html" do
+      assigns = %{html: ""}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.prose html={@html} />
+        """)
+
+      assert html == "" or html =~ "wa-card"
+    end
+
+    test "passes through rest attributes" do
+      assigns = %{html: "<p>Test</p>"}
+
+      html =
+        rendered_to_string(~H"""
+        <UI.prose html={@html} id="custom-id" data-test="value" />
+        """)
+
+      assert html =~ "custom-id"
+      assert html =~ "data-test"
+    end
+  end
 end

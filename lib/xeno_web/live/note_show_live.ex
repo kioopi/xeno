@@ -8,7 +8,7 @@ defmodule XenoWeb.NoteShowLive do
   def mount(%{"id" => id}, _session, socket) do
     case Note.get(id) do
       {:ok, note} ->
-        note = Ash.load!(note, [:directory, :note_type])
+        note = Ash.load!(note, [:directory, :note_type, :html])
 
         if connected?(socket) do
           Logger.info("Socket connected; subscribing")
@@ -30,7 +30,7 @@ defmodule XenoWeb.NoteShowLive do
 
   @impl true
   def handle_info(%{topic: "note:updated:" <> _, payload: %{id: id}}, socket) do
-    note = Note.get!(id, load: [:directory, :note_type])
+    note = Note.get!(id, load: [:directory, :note_type, :html])
 
     {:noreply, assign(socket, note: note, page_title: note.name)}
   end

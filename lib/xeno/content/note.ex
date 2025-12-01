@@ -250,6 +250,10 @@ defmodule Xeno.Content.Note do
     calculate :file_path, :string, Calculations.FilePath do
       description "Full file path without extension (directory path + filename)"
     end
+
+    calculate :html, :string, Calculations.Html do
+      description "HTML rendered from markdown text using Earmark"
+    end
   end
 
   identities do

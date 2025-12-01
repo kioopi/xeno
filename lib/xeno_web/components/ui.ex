@@ -600,6 +600,38 @@ defmodule XenoWeb.Components.UI do
   end
 
   @doc """
+  Renders HTML content with prose styling.
+
+  Used for displaying markdown-rendered HTML content with appropriate
+  typography and spacing. Automatically handles nil/empty content.
+
+  **SECURITY**: This component uses `Phoenix.HTML.raw/1` to render HTML.
+  Only use this with trusted, sanitized HTML (like Earmark output which
+  escapes user HTML by default).
+
+  ## Examples
+
+      <.prose html={@note.html} />
+
+      <.prose html={@rendered_content} class="max-w-3xl" />
+  """
+  attr :html, :string, required: true
+  attr :class, :string, default: nil
+  attr :rest, :global
+
+  def prose(assigns) do
+    ~H"""
+    <%= if @html && @html != "" do %>
+      <wa-card class={["prose prose-sm max-w-none", @class]} {@rest}>
+        <div class="markdown-content">
+          {Phoenix.HTML.raw(@html)}
+        </div>
+      </wa-card>
+    <% end %>
+    """
+  end
+
+  @doc """
   Dialog overlay for focused interactions.
 
   ## Examples

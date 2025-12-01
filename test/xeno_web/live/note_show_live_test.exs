@@ -53,11 +53,13 @@ defmodule XenoWeb.NoteShowLiveTest do
       assert render(view) =~ "Version: 1"
     end
 
-    test "displays text content in formatted block", %{conn: conn, note: note} do
+    test "displays text content as rendered HTML", %{conn: conn, note: note} do
       {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}")
 
-      assert render(view) =~ "Test content here"
-      assert has_element?(view, "pre", "Test content here")
+      html = render(view)
+      assert html =~ "Test content here"
+      assert html =~ "prose"
+      assert html =~ "markdown-content"
     end
 
     test "displays tags", %{conn: conn, note: note} do
