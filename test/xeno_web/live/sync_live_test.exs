@@ -1691,6 +1691,7 @@ defmodule XenoWeb.SyncLiveTest do
             note_type_id: note_type.id
           )
         )
+
       {:ok, view, _html} = live(conn, ~p"/sync")
       render_hook(view, "directory_connected", %{"name" => "TestFolder"})
 
@@ -1727,6 +1728,7 @@ defmodule XenoWeb.SyncLiveTest do
             note_type_id: note_type.id
           )
         )
+
       {:ok, view, _html} = live(conn, ~p"/sync")
       render_hook(view, "directory_connected", %{"name" => "TestFolder"})
 
@@ -1764,6 +1766,7 @@ defmodule XenoWeb.SyncLiveTest do
             note_type_id: note_type.id
           )
         )
+
       {:ok, view, _html} = live(conn, ~p"/sync")
       render_hook(view, "directory_connected", %{"name" => "TestFolder"})
 
@@ -1802,6 +1805,7 @@ defmodule XenoWeb.SyncLiveTest do
             note_type_id: note_type.id
           )
         )
+
       {:ok, view, _html} = live(conn, ~p"/sync")
       render_hook(view, "directory_connected", %{"name" => "TestFolder"})
 

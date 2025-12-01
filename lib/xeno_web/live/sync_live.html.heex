@@ -4,132 +4,136 @@
       <.stack gap={:xl}>
         <.heading level={1}>Editor Integration</.heading>
 
-        <.card level={2} title="Local Folder Connection" subtitle="Connect a local folder to sync your notes for editing with external editors like VS Code or Vim.">
+        <.card
+          level={2}
+          title="Local Folder Connection"
+          subtitle="Connect a local folder to sync your notes for editing with external editors like VS Code or Vim."
+        >
           <%= if @directory_connected do %>
-          <%!-- FileSystemObserver Status Badge --%>
-          <.stack gap={:m}>
-            <.button
-              id="disconnect-directory-btn"
-              phx-click="disconnect_directory"
-              variant={:success}
-              start_icon="circle-check"
-              end_icon="circle-xmark"
-            >
-              Connected to folder{if @directory_name, do: ": #{@directory_name}", else: ""}
-            </.button>
-
-            <.button
-              phx-click="export_all"
-              variant={:brand}
-              disabled={@sync_status != :idle}
-              loading={@sync_status == :exporting or match?({:exporting, _, _}, @sync_status)}
-            >
-              <:loading_content>
-                <%= cond do %>
-                  <% match?({:exporting, _, _}, @sync_status) -> %>
-                    <% {_, current, total} = @sync_status %>
-                    Exporting {current}/{total}
-                  <% true -> %>
-                    Exporting...
-                <% end %>
-              </:loading_content>
-              Export All Notes
-            </.button>
-
-            <.button
-              id="import-btn"
-              phx-click="scan_files"
-              variant={:brand}
-              disabled={@import_status != :idle}
-              loading={@import_status == :scanning or match?({:importing, _, _}, @import_status)}
-            >
-              <:loading_content>
-                <%= cond do %>
-                  <% @import_status == :scanning -> %>
-                    Scanning...
-                  <% match?({:importing, _, _}, @import_status) -> %>
-                    <% {_, current, total} = @import_status %>
-                    Importing {current}/{total}
-                  <% true -> %>
-                    Loading...
-                <% end %>
-              </:loading_content>
-              Import Changes
-            </.button>
-
-            <.badge :if={@observer_supported} variant={:success}>
-              <.icon name="eye" size="1rem" /> Auto-sync available
-            </.badge>
-
-            <.flank :if={@observer_supported} gap={:m}>
+            <%!-- FileSystemObserver Status Badge --%>
+            <.stack gap={:m}>
+              <.button
+                id="disconnect-directory-btn"
+                phx-click="disconnect_directory"
+                variant={:success}
+                start_icon="circle-check"
+                end_icon="circle-xmark"
+              >
+                Connected to folder{if @directory_name, do: ": #{@directory_name}", else: ""}
+              </.button>
 
               <.button
-                :if={@watching_enabled}
-                id="stop-watching-btn"
-                phx-click="stop_watching"
+                phx-click="export_all"
                 variant={:brand}
-                start_icon="circle-pause"
+                disabled={@sync_status != :idle}
+                loading={@sync_status == :exporting or match?({:exporting, _, _}, @sync_status)}
               >
-                Pause Auto-Sync
+                <:loading_content>
+                  <%= cond do %>
+                    <% match?({:exporting, _, _}, @sync_status) -> %>
+                      <% {_, current, total} = @sync_status %> Exporting {current}/{total}
+                    <% true -> %>
+                      Exporting...
+                  <% end %>
+                </:loading_content>
+                Export All Notes
               </.button>
+
               <.button
-                :if={!@watching_enabled}
-                id="start-watching-btn"
-                phx-click="start_watching"
+                id="import-btn"
+                phx-click="scan_files"
                 variant={:brand}
-                start_icon="circle-play"
+                disabled={@import_status != :idle}
+                loading={
+                  @import_status == :scanning or match?({:importing, _, _}, @import_status)
+                }
               >
-                Enable Auto-Sync
+                <:loading_content>
+                  <%= cond do %>
+                    <% @import_status == :scanning -> %>
+                      Scanning...
+                    <% match?({:importing, _, _}, @import_status) -> %>
+                      <% {_, current, total} = @import_status %> Importing {current}/{total}
+                    <% true -> %>
+                      Loading...
+                  <% end %>
+                </:loading_content>
+                Import Changes
               </.button>
-              <.badge :if={@watching_enabled} variant={:success}>
-                <.icon name="eye" size="1rem"  class="animate-pulse"/> Watching for changes...
+
+              <.badge :if={@observer_supported} variant={:success}>
+                <.icon name="eye" size="1rem" /> Auto-sync available
               </.badge>
-            </.flank>
-            <.badge :if={!@observer_supported} variant={:neutral}>
-              <.icon name="circle-info" size="1rem" /> Auto-sync not supported (use manual import)
-            </.badge>
-          </.stack>
 
-          <div class="text-sm opacity-70 mt-1">
-            <p><strong>Export:</strong> Save notes from database to local files</p>
-            <p><strong>Import:</strong> Load changes from local files back to database</p>
-          </div>
+              <.flank :if={@observer_supported} gap={:m}>
+                <.button
+                  :if={@watching_enabled}
+                  id="stop-watching-btn"
+                  phx-click="stop_watching"
+                  variant={:brand}
+                  start_icon="circle-pause"
+                >
+                  Pause Auto-Sync
+                </.button>
+                <.button
+                  :if={!@watching_enabled}
+                  id="start-watching-btn"
+                  phx-click="start_watching"
+                  variant={:brand}
+                  start_icon="circle-play"
+                >
+                  Enable Auto-Sync
+                </.button>
+                <.badge :if={@watching_enabled} variant={:success}>
+                  <.icon name="eye" size="1rem" class="animate-pulse" /> Watching for changes...
+                </.badge>
+              </.flank>
+              <.badge :if={!@observer_supported} variant={:neutral}>
+                <.icon name="circle-info" size="1rem" />
+                Auto-sync not supported (use manual import)
+              </.badge>
+            </.stack>
 
-          <%= if @last_operation do %>
-            <div class="mt-4 text-sm opacity-70 flex items-center gap-2 animate-fade-in">
-              <.icon name="circle-check" class="h-4 w-4 text-success animate-scale-in" />
-              <span>
-                Last {if @last_operation.type == :export, do: "export", else: "import"}: {@last_operation.count} note(s)
-                <%= if @last_operation.type == :import && @last_operation.failed > 0 do %>
-                  ({@last_operation.failed} failed)
-                <% end %>
-                in
-                <%= cond do %>
-                  <% @last_operation.duration < 1000 -> %>
-                    {@last_operation.duration}ms
-                  <% @last_operation.duration < 60_000 -> %>
-                    {Float.round(@last_operation.duration / 1000, 1)}s
-                  <% true -> %>
-                    {div(@last_operation.duration, 60_000)}m {div(
-                      rem(@last_operation.duration, 60_000),
-                      1000
-                    )}s
-                <% end %>
-                • {Calendar.strftime(@last_operation.timestamp, "%H:%M:%S")}
-              </span>
+            <div class="text-sm opacity-70 mt-1">
+              <p><strong>Export:</strong> Save notes from database to local files</p>
+              <p><strong>Import:</strong> Load changes from local files back to database</p>
             </div>
-          <% end %>
-        <% else %>
-          <.stack gap={:m}>
-            <.button phx-click="connect_directory" variant={:brand} appearance={:filled}>
-              Choose Folder
-            </.button>
 
-            <p class="text-xs opacity-60">
-              Note: This feature requires Chrome 86+ or Edge 86+
-            </p>
-          </.stack>
-        <% end %>
+            <%= if @last_operation do %>
+              <div class="mt-4 text-sm opacity-70 flex items-center gap-2 animate-fade-in">
+                <.icon name="circle-check" class="h-4 w-4 text-success animate-scale-in" />
+                <span>
+                  Last {if @last_operation.type == :export, do: "export", else: "import"}: {@last_operation.count} note(s)
+                  <%= if @last_operation.type == :import && @last_operation.failed > 0 do %>
+                    ({@last_operation.failed} failed)
+                  <% end %>
+                  in
+                  <%= cond do %>
+                    <% @last_operation.duration < 1000 -> %>
+                      {@last_operation.duration}ms
+                    <% @last_operation.duration < 60_000 -> %>
+                      {Float.round(@last_operation.duration / 1000, 1)}s
+                    <% true -> %>
+                      {div(@last_operation.duration, 60_000)}m {div(
+                        rem(@last_operation.duration, 60_000),
+                        1000
+                      )}s
+                  <% end %>
+                  • {Calendar.strftime(@last_operation.timestamp, "%H:%M:%S")}
+                </span>
+              </div>
+            <% end %>
+          <% else %>
+            <.stack gap={:m}>
+              <.button phx-click="connect_directory" variant={:brand} appearance={:filled}>
+                Choose Folder
+              </.button>
+
+              <p class="text-xs opacity-60">
+                Note: This feature requires Chrome 86+ or Edge 86+
+              </p>
+            </.stack>
+          <% end %>
         </.card>
 
         <%= if @error do %>
@@ -140,178 +144,178 @@
 
         <%= if @sync_errors do %>
           <div id="error-container" class="animate-fade-in">
-          <.stack gap={:m}>
-            <.flank gap={:m}>
-              <.heading level={2}>
-                Sync Errors ({length(@sync_errors)})
-              </.heading>
-              <.button
-                phx-click="clear_errors"
-                variant={:neutral}
-                appearance={:plain}
-                size={:small}
-              >
-                Clear All
-              </.button>
-            </.flank>
+            <.stack gap={:m}>
+              <.flank gap={:m}>
+                <.heading level={2}>
+                  Sync Errors ({length(@sync_errors)})
+                </.heading>
+                <.button
+                  phx-click="clear_errors"
+                  variant={:neutral}
+                  appearance={:plain}
+                  size={:small}
+                >
+                  Clear All
+                </.button>
+              </.flank>
 
-        <div
-          :for={{error, idx} <- Enum.with_index(@sync_errors)}
-          class="alert shadow-lg transition-all duration-200 hover:shadow-xl"
-        >
-          <%!-- Icon based on error type --%>
-          <%= cond do %>
-            <% error["type"] == "id_not_found" -> %>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="stroke-warning shrink-0 h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
+              <div
+                :for={{error, idx} <- Enum.with_index(@sync_errors)}
+                class="alert shadow-lg transition-all duration-200 hover:shadow-xl"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-            <% error["type"] == "path_mismatch" -> %>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="stroke-error shrink-0 h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            <% error["type"] == "validation" -> %>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="stroke-error shrink-0 h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            <% true -> %>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="stroke-info shrink-0 h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-          <% end %>
+                <%!-- Icon based on error type --%>
+                <%= cond do %>
+                  <% error["type"] == "id_not_found" -> %>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="stroke-warning shrink-0 h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                  <% error["type"] == "path_mismatch" -> %>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="stroke-error shrink-0 h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  <% error["type"] == "validation" -> %>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="stroke-error shrink-0 h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  <% true -> %>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="stroke-info shrink-0 h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                <% end %>
 
-          <div class="flex-1">
-            <div class="flex items-center gap-2 mb-1">
-              <%!-- Error type badge --%>
-              <%= cond do %>
-                <% error["type"] == "id_not_found" -> %>
-                  <span class="badge badge-warning badge-sm">ID Not Found</span>
-                <% error["type"] == "path_mismatch" -> %>
-                  <span class="badge badge-error badge-sm">Path Mismatch</span>
-                <% error["type"] == "validation" -> %>
-                  <span class="badge badge-error badge-sm">Validation Error</span>
-                <% true -> %>
-                  <span class="badge badge-info badge-sm">Unknown Error</span>
-              <% end %>
-              <%= if error["note_name"] do %>
-                <span class="font-semibold">{error["note_name"]}</span>
-              <% end %>
-            </div>
-
-            <%= if error["file_path"] do %>
-              <code class="text-xs bg-base-200 px-2 py-1 rounded block mb-1">
-                {error["file_path"]}
-              </code>
-            <% end %>
-
-            <p class="text-sm">{error["message"]}</p>
-
-            <%!-- Collapsible details section --%>
-            <%= if error["type"] == "id_not_found" && error["suggested_id"] do %>
-              <details class="mt-2">
-                <summary class="text-xs cursor-pointer opacity-70 hover:opacity-100">
-                  Show Details
-                </summary>
-                <div class="text-xs mt-2 bg-base-200 p-2 rounded">
-                  <div>
-                    <strong>Provided ID:</strong>
-                    <code class="ml-1">{error["provided_id"]}</code>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <%!-- Error type badge --%>
+                    <%= cond do %>
+                      <% error["type"] == "id_not_found" -> %>
+                        <span class="badge badge-warning badge-sm">ID Not Found</span>
+                      <% error["type"] == "path_mismatch" -> %>
+                        <span class="badge badge-error badge-sm">Path Mismatch</span>
+                      <% error["type"] == "validation" -> %>
+                        <span class="badge badge-error badge-sm">Validation Error</span>
+                      <% true -> %>
+                        <span class="badge badge-info badge-sm">Unknown Error</span>
+                    <% end %>
+                    <%= if error["note_name"] do %>
+                      <span class="font-semibold">{error["note_name"]}</span>
+                    <% end %>
                   </div>
-                  <%= if error["suggested_id"] do %>
-                    <div>
-                      <strong>Suggested ID:</strong>
-                      <code class="ml-1">{error["suggested_id"]}</code>
-                    </div>
+
+                  <%= if error["file_path"] do %>
+                    <code class="text-xs bg-base-200 px-2 py-1 rounded block mb-1">
+                      {error["file_path"]}
+                    </code>
+                  <% end %>
+
+                  <p class="text-sm">{error["message"]}</p>
+
+                  <%!-- Collapsible details section --%>
+                  <%= if error["type"] == "id_not_found" && error["suggested_id"] do %>
+                    <details class="mt-2">
+                      <summary class="text-xs cursor-pointer opacity-70 hover:opacity-100">
+                        Show Details
+                      </summary>
+                      <div class="text-xs mt-2 bg-base-200 p-2 rounded">
+                        <div>
+                          <strong>Provided ID:</strong>
+                          <code class="ml-1">{error["provided_id"]}</code>
+                        </div>
+                        <%= if error["suggested_id"] do %>
+                          <div>
+                            <strong>Suggested ID:</strong>
+                            <code class="ml-1">{error["suggested_id"]}</code>
+                          </div>
+                        <% end %>
+                      </div>
+                    </details>
+                  <% end %>
+
+                  <%= if error["type"] == "path_mismatch" do %>
+                    <details class="mt-2">
+                      <summary class="text-xs cursor-pointer opacity-70 hover:opacity-100">
+                        Show Details
+                      </summary>
+                      <div class="text-xs mt-2 bg-base-200 p-2 rounded space-y-1">
+                        <div>
+                          <strong>Expected Path:</strong>
+                          <code class="ml-1">{error["expected_path"]}</code>
+                        </div>
+                        <div>
+                          <strong>Actual Path:</strong>
+                          <code class="ml-1">{error["actual_path"]}</code>
+                        </div>
+                        <%= if error["note_id"] do %>
+                          <div>
+                            <strong>Note ID:</strong>
+                            <code class="ml-1">{error["note_id"]}</code>
+                          </div>
+                        <% end %>
+                      </div>
+                    </details>
                   <% end %>
                 </div>
-              </details>
-            <% end %>
-
-            <%= if error["type"] == "path_mismatch" do %>
-              <details class="mt-2">
-                <summary class="text-xs cursor-pointer opacity-70 hover:opacity-100">
-                  Show Details
-                </summary>
-                <div class="text-xs mt-2 bg-base-200 p-2 rounded space-y-1">
-                  <div>
-                    <strong>Expected Path:</strong>
-                    <code class="ml-1">{error["expected_path"]}</code>
-                  </div>
-                  <div>
-                    <strong>Actual Path:</strong>
-                    <code class="ml-1">{error["actual_path"]}</code>
-                  </div>
-                  <%= if error["note_id"] do %>
-                    <div>
-                      <strong>Note ID:</strong>
-                      <code class="ml-1">{error["note_id"]}</code>
-                    </div>
-                  <% end %>
-                </div>
-              </details>
-            <% end %>
-          </div>
-        </div>
-          </.stack>
+              </div>
+            </.stack>
           </div>
         <% end %>
 
         <%!-- ID Conflict Resolution Dialog --%>
         <%= if @id_conflict do %>
-        <wa-dialog open={true} id="conflict-dialog">
-          <.stack gap={:l}>
-            <.heading level={2} class="text-error">
-              <.icon name="triangle-exclamation" class="inline-block w-6 h-6 mr-2" />
-              Note ID Conflict Detected
-            </.heading>
+          <wa-dialog open={true} id="conflict-dialog">
+            <.stack gap={:l}>
+              <.heading level={2} class="text-error">
+                <.icon name="triangle-exclamation" class="inline-block w-6 h-6 mr-2" />
+                Note ID Conflict Detected
+              </.heading>
 
-            <.alert variant={:warning}>
-              <div>
-                <p class="font-semibold">The note has conflicting IDs</p>
-                <p class="text-sm">
-                  Please choose which ID to use. The file will be updated automatically.
-                </p>
-              </div>
-            </.alert>
+              <.alert variant={:warning}>
+                <div>
+                  <p class="font-semibold">The note has conflicting IDs</p>
+                  <p class="text-sm">
+                    Please choose which ID to use. The file will be updated automatically.
+                  </p>
+                </div>
+              </.alert>
 
               <div>
                 <p class="text-sm opacity-70 mb-2">
@@ -423,11 +427,15 @@
                   Cancel
                 </.button>
               </.button_group>
-          </.stack>
-        </wa-dialog>
+            </.stack>
+          </wa-dialog>
         <% end %>
 
-        <.card level={2} title="Export Preview (Development)" subtitle="Preview what the exported files will look like without writing to disk.">
+        <.card
+          level={2}
+          title="Export Preview (Development)"
+          subtitle="Preview what the exported files will look like without writing to disk."
+        >
           <.button_group>
             <.button
               id="export-preview-btn"
@@ -452,52 +460,52 @@
           </.button_group>
         </.card>
 
-    <%= if @preview_mode == :single && @preview_data do %>
-      <div id="preview-container" class="space-y-6">
-        <div class="card bg-base-200">
-          <div class="card-body">
-            <h3 class="card-title">Markdown Content (.md file)</h3>
-            <pre
-              id="markdown-preview"
-              class="whitespace-pre-wrap font-mono text-sm bg-base-300 p-4 rounded-lg overflow-x-auto"
-            >{@preview_data.markdown}</pre>
+        <%= if @preview_mode == :single && @preview_data do %>
+          <div id="preview-container" class="space-y-6">
+            <div class="card bg-base-200">
+              <div class="card-body">
+                <h3 class="card-title">Markdown Content (.md file)</h3>
+                <pre
+                  id="markdown-preview"
+                  class="whitespace-pre-wrap font-mono text-sm bg-base-300 p-4 rounded-lg overflow-x-auto"
+                >{@preview_data.markdown}</pre>
+              </div>
+            </div>
+
+            <div class="card bg-base-200">
+              <div class="card-body">
+                <h3 class="card-title">JSON Metadata (.json file)</h3>
+                <pre
+                  id="json-preview"
+                  class="whitespace-pre-wrap font-mono text-sm bg-base-300 p-4 rounded-lg overflow-x-auto"
+                >{@preview_data.json}</pre>
+              </div>
+            </div>
           </div>
-        </div>
+        <% end %>
 
-        <div class="card bg-base-200">
-          <div class="card-body">
-            <h3 class="card-title">JSON Metadata (.json file)</h3>
-            <pre
-              id="json-preview"
-              class="whitespace-pre-wrap font-mono text-sm bg-base-300 p-4 rounded-lg overflow-x-auto"
-            >{@preview_data.json}</pre>
+        <%= if @preview_mode == :all && @preview_data do %>
+          <div id="preview-container" class="space-y-6">
+            <div class="alert alert-info">
+              <span>Ready to export {@preview_data.count} notes</span>
+            </div>
+
+            <div :for={item <- @preview_data.items} class="card bg-base-200 mb-4">
+              <div class="card-body">
+                <h3 class="card-title text-lg">
+                  {item.note.name}
+                  <span class="badge badge-neutral text-xs">{item.path}</span>
+                </h3>
+
+                <div class="divider">Markdown</div>
+                <pre class="whitespace-pre-wrap font-mono text-xs bg-base-300 p-3 rounded max-h-40 overflow-auto">{item.markdown}</pre>
+
+                <div class="divider">JSON Metadata</div>
+                <pre class="whitespace-pre-wrap font-mono text-xs bg-base-300 p-3 rounded max-h-40 overflow-auto">{item.json}</pre>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    <% end %>
-
-    <%= if @preview_mode == :all && @preview_data do %>
-      <div id="preview-container" class="space-y-6">
-        <div class="alert alert-info">
-          <span>Ready to export {@preview_data.count} notes</span>
-        </div>
-
-        <div :for={item <- @preview_data.items} class="card bg-base-200 mb-4">
-          <div class="card-body">
-            <h3 class="card-title text-lg">
-              {item.note.name}
-              <span class="badge badge-neutral text-xs">{item.path}</span>
-            </h3>
-
-            <div class="divider">Markdown</div>
-            <pre class="whitespace-pre-wrap font-mono text-xs bg-base-300 p-3 rounded max-h-40 overflow-auto">{item.markdown}</pre>
-
-            <div class="divider">JSON Metadata</div>
-            <pre class="whitespace-pre-wrap font-mono text-xs bg-base-300 p-3 rounded max-h-40 overflow-auto">{item.json}</pre>
-          </div>
-        </div>
-      </div>
-    <% end %>
+        <% end %>
       </.stack>
     </div>
   </.container>

@@ -58,9 +58,10 @@ defmodule XenoWeb.Components.DocumentationTest do
       {:docs_v1, _, :elixir, _, _, _, functions} = Code.fetch_docs(XenoWeb.Components.Layout)
 
       for component <- layout_components do
-        doc_entry = Enum.find(functions, fn {{type, name, _arity}, _, _, _, _} ->
-          type == :function and name == component
-        end)
+        doc_entry =
+          Enum.find(functions, fn {{type, name, _arity}, _, _, _, _} ->
+            type == :function and name == component
+          end)
 
         assert doc_entry != nil,
                "Component #{component}/1 not found in XenoWeb.Components.Layout"
@@ -107,9 +108,10 @@ defmodule XenoWeb.Components.DocumentationTest do
       {:docs_v1, _, :elixir, _, _, _, functions} = Code.fetch_docs(XenoWeb.Components.UI)
 
       for component <- ui_components do
-        doc_entry = Enum.find(functions, fn {{type, name, _arity}, _, _, _, _} ->
-          type == :function and name == component
-        end)
+        doc_entry =
+          Enum.find(functions, fn {{type, name, _arity}, _, _, _, _} ->
+            type == :function and name == component
+          end)
 
         assert doc_entry != nil,
                "Component #{component}/1 not found in XenoWeb.Components.UI"
