@@ -619,7 +619,9 @@ defmodule XenoWeb.SyncLiveTest do
       render_hook(view, "id_conflict", conflict_params)
 
       # Should store conflict data in socket
-      assert %{id_conflict: conflict} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.conflict.id_conflict != nil
+      conflict = state.conflict.id_conflict
       assert conflict.path == "test/note.md"
       assert conflict.json_id == "json-id-123"
       assert conflict.server_id == "server-id-456"
@@ -639,7 +641,9 @@ defmodule XenoWeb.SyncLiveTest do
 
       render_hook(view, "id_conflict", conflict_params)
 
-      assert %{id_conflict: conflict} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.conflict.id_conflict != nil
+      conflict = state.conflict.id_conflict
       assert conflict.local_id == nil
     end
   end
@@ -658,7 +662,9 @@ defmodule XenoWeb.SyncLiveTest do
       render_hook(view, "path_mismatch", mismatch_params)
 
       # Should store mismatch data
-      assert %{path_mismatch: mismatch} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.conflict.path_mismatch != nil
+      mismatch = state.conflict.path_mismatch
       assert mismatch.id == "abc-123"
       assert mismatch.expected_path == "old/location.md"
       assert mismatch.actual_path == "new/location.md"
@@ -691,7 +697,8 @@ defmodule XenoWeb.SyncLiveTest do
       })
 
       # Should clear conflict from state
-      assert %{id_conflict: nil} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.conflict.id_conflict == nil
     end
 
     test "chooses local ID when user selects local", %{conn: conn} do
@@ -778,14 +785,15 @@ defmodule XenoWeb.SyncLiveTest do
       render_hook(view, "id_conflict", conflict_params)
 
       # Verify conflict is set
-      assert %{id_conflict: conflict} = :sys.get_state(view.pid).socket.assigns
-      assert conflict != nil
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.conflict.id_conflict != nil
 
       # Cancel the conflict
       render_hook(view, "cancel_conflict", %{})
 
       # Should clear conflict
-      assert %{id_conflict: nil} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.conflict.id_conflict == nil
     end
   end
 
@@ -899,8 +907,8 @@ defmodule XenoWeb.SyncLiveTest do
       render_hook(view, "id_conflict", conflict_params)
 
       # Verify conflict is set
-      assert %{id_conflict: conflict} = :sys.get_state(view.pid).socket.assigns
-      assert conflict != nil
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.conflict.id_conflict != nil
 
       # Click cancel
       view
@@ -908,7 +916,8 @@ defmodule XenoWeb.SyncLiveTest do
       |> render_click()
 
       # Should clear conflict
-      assert %{id_conflict: nil} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.conflict.id_conflict == nil
     end
   end
 
@@ -1165,7 +1174,9 @@ defmodule XenoWeb.SyncLiveTest do
         "providedPath" => old_path
       })
 
-      assert %{path_mismatch: path_mismatch} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.conflict.path_mismatch != nil
+      path_mismatch = state.conflict.path_mismatch
       assert path_mismatch.id == note_id
       assert path_mismatch.expected_path == new_path
       assert path_mismatch.actual_path == old_path
@@ -1276,12 +1287,15 @@ defmodule XenoWeb.SyncLiveTest do
         "reason" => "Test cancel flow"
       })
 
-      assert %{id_conflict: conflict} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.conflict.id_conflict != nil
+      conflict = state.conflict.id_conflict
       assert conflict.json_id == json_id
 
       render_hook(view, "cancel_conflict", %{})
 
-      assert %{id_conflict: nil} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.conflict.id_conflict == nil
 
       html = render(view)
       refute html =~ "Note ID Conflict Detected"
@@ -1294,7 +1308,8 @@ defmodule XenoWeb.SyncLiveTest do
 
       render_hook(view, "observer_supported", %{"supported" => true})
 
-      assert %{observer_supported: true} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.connection.observer_supported == true
     end
 
     test "observer_supported event sets capability flag to false", %{conn: conn} do
@@ -1302,7 +1317,8 @@ defmodule XenoWeb.SyncLiveTest do
 
       render_hook(view, "observer_supported", %{"supported" => false})
 
-      assert %{observer_supported: false} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.connection.observer_supported == false
     end
 
     test "start_watching event enables watching and pushes to JS", %{conn: conn} do
@@ -1318,7 +1334,8 @@ defmodule XenoWeb.SyncLiveTest do
       |> render_click()
 
       # Should set watching_enabled to true
-      assert %{watching_enabled: true} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.connection.watching == true
 
       # Should push event to JS
       assert_push_event(view, "start_file_observer", %{})
@@ -1338,7 +1355,8 @@ defmodule XenoWeb.SyncLiveTest do
       |> render_click()
 
       # Should set watching_enabled to false
-      assert %{watching_enabled: false} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.connection.watching == false
 
       # Should push event to JS
       assert_push_event(view, "stop_file_observer", %{})
@@ -1351,7 +1369,8 @@ defmodule XenoWeb.SyncLiveTest do
       render_hook(view, "watching_started", %{})
 
       # Should set watching_enabled
-      assert %{watching_enabled: true} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.connection.watching == true
 
       # Should show success message
       html = render(view)
@@ -1369,7 +1388,8 @@ defmodule XenoWeb.SyncLiveTest do
       render_hook(view, "watching_stopped", %{})
 
       # Should clear watching state
-      assert %{watching_enabled: false} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.connection.watching == false
 
       # Should show info message
       html = render(view)
@@ -1440,7 +1460,8 @@ defmodule XenoWeb.SyncLiveTest do
       refute html =~ "Exporting"
 
       # Button should be enabled again (not have loading class/state)
-      assert %{sync_status: :idle} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.operation.mode == :idle
     end
 
     test "import button stops loading after import completion", %{conn: conn} do
@@ -1464,7 +1485,8 @@ defmodule XenoWeb.SyncLiveTest do
       refute html =~ "Importing"
 
       # Import status should be back to idle
-      assert %{import_status: :idle} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.operation.mode == :idle
     end
 
     test "import button full flow from scan_files event", %{conn: conn} do
@@ -1473,21 +1495,27 @@ defmodule XenoWeb.SyncLiveTest do
       render_hook(view, "directory_connected", %{})
 
       # Verify button is not loading initially
-      assert %{import_status: :idle} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.operation.mode == :idle
 
       # User clicks "Import Changes" - triggers scan_files
       # This sets import_status to :scanning
       render_hook(view, "scan_files", %{})
-      assert %{import_status: :scanning} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.operation.mode == :import
+      assert state.operation.phase == :scanning
 
       # JavaScript calls scan_started after counting files
       render_hook(view, "scan_started", %{"total" => 5})
-      assert %{import_status: {:importing, 0, 5}} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.operation.mode == :import
+      assert state.operation.phase == {:running, 0, 5}
 
       # JavaScript sends import_files with changes
       # This should set import_status back to :idle
       render_hook(view, "import_files", %{"changes" => []})
-      assert %{import_status: :idle} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.operation.mode == :idle
 
       # Button should not be loading anymore
       html = render(view)
@@ -1504,11 +1532,14 @@ defmodule XenoWeb.SyncLiveTest do
 
       # Start export
       render_hook(view, "export_progress", %{"current" => 2, "total" => 10})
-      assert %{sync_status: {:exporting, 2, 10}} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.operation.mode == :export
+      assert state.operation.phase == {:running, 2, 10}
 
       # Export error - should go back to idle
       render_hook(view, "export_error", %{"message" => "Failed"})
-      assert %{sync_status: :idle} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.operation.mode == :idle
 
       html = render(view)
       refute html =~ "Exporting"
@@ -1523,11 +1554,14 @@ defmodule XenoWeb.SyncLiveTest do
 
       # Start import
       render_hook(view, "import_progress", %{"current" => 2, "total" => 5})
-      assert %{import_status: {:importing, 2, 5}} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.operation.mode == :import
+      assert state.operation.phase == {:running, 2, 5}
 
       # Import error - should go back to idle
       render_hook(view, "import_error", %{"message" => "Import failed"})
-      assert %{import_status: :idle} = :sys.get_state(view.pid).socket.assigns
+      state = :sys.get_state(view.pid).socket.assigns.state
+      assert state.operation.mode == :idle
 
       html = render(view)
       refute html =~ "Importing"

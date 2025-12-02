@@ -9,7 +9,7 @@
           title="Local Folder Connection"
           subtitle="Connect a local folder to sync your notes for editing with external editors like VS Code or Vim."
         >
-          <%= if @directory_connected do %>
+          <%= if @state.connection.connected? do %>
             <%!-- FileSystemObserver Status Badge --%>
             <.stack gap={:m}>
               <.button
@@ -19,19 +19,21 @@
                 start_icon="circle-check"
                 end_icon="circle-xmark"
               >
-                Connected to folder{if @directory_name, do: ": #{@directory_name}", else: ""}
+                Connected to folder{if @state.connection.name,
+                  do: ": #{@state.connection.name}",
+                  else: ""}
               </.button>
 
               <.button
                 phx-click="export_all"
                 variant={:brand}
-                disabled={@sync_status != :idle}
-                loading={@sync_status == :exporting or match?({:exporting, _, _}, @sync_status)}
+                disabled={@state.operation.mode == :export}
+                loading={@state.operation.mode == :export}
               >
                 <:loading_content>
                   <%= cond do %>
-                    <% match?({:exporting, _, _}, @sync_status) -> %>
-                      <% {_, current, total} = @sync_status %> Exporting {current}/{total}
+                    <% match?({:running, _, _}, @state.operation.phase) and @state.operation.mode == :export -> %>
+                      <% {:running, current, total} = @state.operation.phase %> Exporting {current}/{total}
                     <% true -> %>
                       Exporting...
                   <% end %>
@@ -43,17 +45,15 @@
                 id="import-btn"
                 phx-click="scan_files"
                 variant={:brand}
-                disabled={@import_status != :idle}
-                loading={
-                  @import_status == :scanning or match?({:importing, _, _}, @import_status)
-                }
+                disabled={@state.operation.mode == :import}
+                loading={@state.operation.mode == :import}
               >
                 <:loading_content>
                   <%= cond do %>
-                    <% @import_status == :scanning -> %>
+                    <% @state.operation.phase == :scanning and @state.operation.mode == :import -> %>
                       Scanning...
-                    <% match?({:importing, _, _}, @import_status) -> %>
-                      <% {_, current, total} = @import_status %> Importing {current}/{total}
+                    <% match?({:running, _, _}, @state.operation.phase) and @state.operation.mode == :import -> %>
+                      <% {:running, current, total} = @state.operation.phase %> Importing {current}/{total}
                     <% true -> %>
                       Loading...
                   <% end %>
@@ -61,13 +61,13 @@
                 Import Changes
               </.button>
 
-              <.badge :if={@observer_supported} variant={:success}>
+              <.badge :if={@state.connection.observer_supported} variant={:success}>
                 <.icon name="eye" size="1rem" /> Auto-sync available
               </.badge>
 
-              <.flank :if={@observer_supported} gap={:m}>
+              <.flank :if={@state.connection.observer_supported} gap={:m}>
                 <.button
-                  :if={@watching_enabled}
+                  :if={@state.connection.watching}
                   id="stop-watching-btn"
                   phx-click="stop_watching"
                   variant={:brand}
@@ -76,7 +76,7 @@
                   Pause Auto-Sync
                 </.button>
                 <.button
-                  :if={!@watching_enabled}
+                  :if={!@state.connection.watching}
                   id="start-watching-btn"
                   phx-click="start_watching"
                   variant={:brand}
@@ -84,11 +84,11 @@
                 >
                   Enable Auto-Sync
                 </.button>
-                <.badge :if={@watching_enabled} variant={:success}>
+                <.badge :if={@state.connection.watching} variant={:success}>
                   <.icon name="eye" size="1rem" class="animate-pulse" /> Watching for changes...
                 </.badge>
               </.flank>
-              <.badge :if={!@observer_supported} variant={:neutral}>
+              <.badge :if={!@state.connection.observer_supported} variant={:neutral}>
                 <.icon name="circle-info" size="1rem" />
                 Auto-sync not supported (use manual import)
               </.badge>
@@ -99,27 +99,19 @@
               <p><strong>Import:</strong> Load changes from local files back to database</p>
             </div>
 
-            <%= if @last_operation do %>
+            <%= if @state.operation.last do %>
+              <% last = @state.operation.last %>
               <div class="mt-4 text-sm opacity-70 flex items-center gap-2 animate-fade-in">
                 <.icon name="circle-check" class="h-4 w-4 text-success animate-scale-in" />
                 <span>
-                  Last {if @last_operation.type == :export, do: "export", else: "import"}: {@last_operation.count} note(s)
-                  <%= if @last_operation.type == :import && @last_operation.failed > 0 do %>
-                    ({@last_operation.failed} failed)
+                  Last {if last.type == :export, do: "export", else: "import"}: {last.count} note(s)
+                  <%= if last.type == :import && last.failed > 0 do %>
+                    ({last.failed} failed)
                   <% end %>
-                  in
-                  <%= cond do %>
-                    <% @last_operation.duration < 1000 -> %>
-                      {@last_operation.duration}ms
-                    <% @last_operation.duration < 60_000 -> %>
-                      {Float.round(@last_operation.duration / 1000, 1)}s
-                    <% true -> %>
-                      {div(@last_operation.duration, 60_000)}m {div(
-                        rem(@last_operation.duration, 60_000),
-                        1000
-                      )}s
-                  <% end %>
-                  • {Calendar.strftime(@last_operation.timestamp, "%H:%M:%S")}
+                  in {XenoWeb.Sync.State.format_duration(last.duration_ms)} • {Calendar.strftime(
+                    last.at,
+                    "%H:%M:%S"
+                  )}
                 </span>
               </div>
             <% end %>
@@ -142,12 +134,12 @@
           </.alert>
         <% end %>
 
-        <%= if @sync_errors do %>
+        <%= if @state.operation.errors do %>
           <div id="error-container" class="animate-fade-in">
             <.stack gap={:m}>
               <.flank gap={:m}>
                 <.heading level={2}>
-                  Sync Errors ({length(@sync_errors)})
+                  Sync Errors ({length(@state.operation.errors)})
                 </.heading>
                 <.button
                   phx-click="clear_errors"
@@ -160,7 +152,7 @@
               </.flank>
 
               <div
-                :for={{error, idx} <- Enum.with_index(@sync_errors)}
+                :for={{error, idx} <- Enum.with_index(@state.operation.errors)}
                 class="alert shadow-lg transition-all duration-200 hover:shadow-xl"
               >
                 <%!-- Icon based on error type --%>
@@ -300,7 +292,8 @@
         <% end %>
 
         <%!-- ID Conflict Resolution Dialog --%>
-        <%= if @id_conflict do %>
+        <%= if @state.conflict.id_conflict do %>
+          <% conflict = @state.conflict.id_conflict %>
           <wa-dialog open={true} id="conflict-dialog">
             <.stack gap={:l}>
               <.heading level={2} class="text-error">
@@ -320,12 +313,12 @@
               <div>
                 <p class="text-sm opacity-70 mb-2">
                   <strong>File:</strong>
-                  <code class="bg-base-200 px-2 py-1 rounded">{@id_conflict.path}</code>
+                  <code class="bg-base-200 px-2 py-1 rounded">{conflict.path}</code>
                 </p>
-                <%= if @id_conflict.reason do %>
+                <%= if conflict.reason do %>
                   <p class="text-sm opacity-70">
                     <strong>Reason:</strong>
-                    {@id_conflict.reason}
+                    {conflict.reason}
                   </p>
                 <% end %>
               </div>
@@ -340,7 +333,7 @@
                         <h4 class="font-semibold">Server ID</h4>
                       </.flank>
                       <code class="text-sm block bg-base-200 px-2 py-1 rounded font-mono">
-                        {@id_conflict.server_id}
+                        {conflict.server_id}
                       </code>
                       <p class="text-xs opacity-70">
                         ID found in the database at this path. This is usually the correct choice.
@@ -359,7 +352,7 @@
                   </.flank>
                 </.card>
                 <%!-- Local Cache ID Option --%>
-                <%= if @id_conflict.local_id do %>
+                <%= if conflict.local_id do %>
                   <.card class="bg-base-200 border-2 border-base-300 hover:bg-base-300 cursor-pointer transition">
                     <.flank gap={:m}>
                       <.stack gap={:s} class="flex-1">
@@ -368,7 +361,7 @@
                           <h4 class="font-semibold">Browser Cache ID</h4>
                         </.flank>
                         <code class="text-sm block bg-base-100 px-2 py-1 rounded font-mono">
-                          {@id_conflict.local_id}
+                          {conflict.local_id}
                         </code>
                         <p class="text-xs opacity-70">
                           ID stored in your browser's local cache from previous imports.
@@ -397,7 +390,7 @@
                         <h4 class="font-semibold">JSON File ID</h4>
                       </.flank>
                       <code class="text-sm block bg-base-100 px-2 py-1 rounded font-mono">
-                        {@id_conflict.json_id}
+                        {conflict.json_id}
                       </code>
                       <p class="text-xs opacity-70">
                         ID currently in the JSON file. May contain a typo or be outdated.
@@ -460,7 +453,7 @@
           </.button_group>
         </.card>
 
-        <%= if @preview_mode == :single && @preview_data do %>
+        <%= if @state.preview.mode == :single && @state.preview.data do %>
           <div id="preview-container" class="space-y-6">
             <div class="card bg-base-200">
               <div class="card-body">
@@ -468,7 +461,7 @@
                 <pre
                   id="markdown-preview"
                   class="whitespace-pre-wrap font-mono text-sm bg-base-300 p-4 rounded-lg overflow-x-auto"
-                >{@preview_data.markdown}</pre>
+                >{@state.preview.data.markdown}</pre>
               </div>
             </div>
 
@@ -478,19 +471,19 @@
                 <pre
                   id="json-preview"
                   class="whitespace-pre-wrap font-mono text-sm bg-base-300 p-4 rounded-lg overflow-x-auto"
-                >{@preview_data.json}</pre>
+                >{@state.preview.data.json}</pre>
               </div>
             </div>
           </div>
         <% end %>
 
-        <%= if @preview_mode == :all && @preview_data do %>
+        <%= if @state.preview.mode == :all && @state.preview.data do %>
           <div id="preview-container" class="space-y-6">
             <div class="alert alert-info">
-              <span>Ready to export {@preview_data.count} notes</span>
+              <span>Ready to export {@state.preview.data.count} notes</span>
             </div>
 
-            <div :for={item <- @preview_data.items} class="card bg-base-200 mb-4">
+            <div :for={item <- @state.preview.data.items} class="card bg-base-200 mb-4">
               <div class="card-body">
                 <h3 class="card-title text-lg">
                   {item.note.name}

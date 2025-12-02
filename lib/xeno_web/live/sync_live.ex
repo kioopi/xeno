@@ -2,6 +2,7 @@ defmodule XenoWeb.SyncLive do
   use XenoWeb, :live_view
 
   alias Xeno.Sync
+  alias XenoWeb.Sync.State
 
   @impl true
   def mount(_params, _session, socket) do
@@ -9,22 +10,8 @@ defmodule XenoWeb.SyncLive do
      socket
      |> assign(
        page_title: "Editor Integration",
-       preview_mode: nil,
-       preview_data: nil,
-       selected_note_id: nil,
-       directory_connected: false,
-       directory_name: nil,
-       sync_status: :idle,
-       import_status: :idle,
-       operation_start_time: nil,
-       last_operation: nil,
-       last_sync: nil,
-       error: nil,
-       sync_errors: nil,
-       id_conflict: nil,
-       path_mismatch: nil,
-       observer_supported: false,
-       watching_enabled: false
+       state: State.new(),
+       error: nil
      )}
   end
 
@@ -32,22 +19,23 @@ defmodule XenoWeb.SyncLive do
   def handle_event("export_preview", %{"note_id" => note_id}, socket) do
     case Sync.export_note(note_id) do
       {:ok, {markdown, json_string}} ->
+        state =
+          State.set_single_preview(socket.assigns.state, note_id, %{
+            markdown: markdown,
+            json: json_string
+          })
+
         {:noreply,
          socket
-         |> assign(
-           preview_mode: :single,
-           preview_data: %{
-             markdown: markdown,
-             json: json_string
-           },
-           selected_note_id: note_id
-         )}
+         |> assign(state: state)}
 
       {:error, _error} ->
+        state = State.clear_preview(socket.assigns.state)
+
         {:noreply,
          socket
-         |> put_flash(:error, "Failed to export note")
-         |> assign(preview_mode: nil, preview_data: nil)}
+         |> assign(state: state)
+         |> put_flash(:error, "Failed to export note")}
     end
   end
 
@@ -67,15 +55,15 @@ defmodule XenoWeb.SyncLive do
         }
       end)
 
+    state =
+      State.set_all_preview(socket.assigns.state, %{
+        items: preview_items,
+        count: length(preview_items)
+      })
+
     {:noreply,
      socket
-     |> assign(
-       preview_mode: :all,
-       preview_data: %{
-         items: preview_items,
-         count: length(preview_items)
-       }
-     )}
+     |> assign(state: state)}
   end
 
   @impl true
@@ -85,32 +73,40 @@ defmodule XenoWeb.SyncLive do
 
   @impl true
   def handle_event("directory_connected", %{"name" => name}, socket) do
+    state = State.connect(socket.assigns.state, name)
+
     {:noreply,
      socket
-     |> assign(directory_connected: true, directory_name: name, error: nil)
+     |> assign(state: state)
      |> put_flash(:info, "Connected to folder: #{name}")}
   end
 
   def handle_event("directory_connected", _params, socket) do
+    state = State.connect(socket.assigns.state, nil)
+
     {:noreply,
      socket
-     |> assign(directory_connected: true, error: nil)
+     |> assign(state: state)
      |> put_flash(:info, "Folder connected successfully")}
   end
 
   @impl true
   def handle_event("directory_disconnected", _params, socket) do
+    state = State.disconnect(socket.assigns.state)
+
     {:noreply,
      socket
-     |> assign(directory_connected: false, directory_name: nil)
+     |> assign(state: state)
      |> put_flash(:info, "Folder disconnected")}
   end
 
   @impl true
   def handle_event("directory_error", %{"message" => message}, socket) do
+    state = State.set_error(socket.assigns.state, message)
+
     {:noreply,
      socket
-     |> assign(error: message)
+     |> assign(state: state)
      |> put_flash(:error, message)}
   end
 
@@ -121,109 +117,167 @@ defmodule XenoWeb.SyncLive do
 
   @impl true
   def handle_event("export_all", _params, socket) do
-    notes_with_paths = Sync.export_all()
+    start_time = System.monotonic_time(:millisecond)
 
-    files =
-      Enum.map(notes_with_paths, fn {note, path} ->
-        {:ok, {markdown, json_string}} = Sync.export_note(note.id)
+    case State.start_export(socket.assigns.state, start_time) do
+      {:error, :operation_in_progress, _state} ->
+        {:noreply, put_flash(socket, :error, "Operation already in progress")}
 
-        %{
-          path: path,
-          markdown: markdown,
-          json: json_string,
-          metadata: %{
-            note_id: note.id,
-            name: note.name,
-            version: note.version
-          }
-        }
-      end)
+      state ->
+        notes_with_paths = Sync.export_all()
 
-    {:noreply,
-     socket
-     |> assign(sync_status: :exporting, operation_start_time: System.monotonic_time(:millisecond))
-     |> push_event("write_files", %{files: files})}
+        files =
+          Enum.map(notes_with_paths, fn {note, path} ->
+            {:ok, {markdown, json_string}} = Sync.export_note(note.id)
+
+            %{
+              path: path,
+              markdown: markdown,
+              json: json_string,
+              metadata: %{
+                note_id: note.id,
+                name: note.name,
+                version: note.version
+              }
+            }
+          end)
+
+        {:noreply,
+         socket
+         |> assign(state: state)
+         |> push_event("write_files", %{files: files})}
+    end
   end
 
   @impl true
   def handle_event("export_progress", %{"current" => current, "total" => total}, socket) do
-    {:noreply, assign(socket, sync_status: {:exporting, current, total})}
+    # Start export if not already started (for direct test calls)
+    state =
+      if socket.assigns.state.operation.mode != :export do
+        State.start_export(socket.assigns.state, System.monotonic_time(:millisecond))
+      else
+        socket.assigns.state
+      end
+
+    state = State.export_progress(state, current, total)
+
+    {:noreply,
+     socket
+     |> assign(state: state)}
   end
 
   @impl true
   def handle_event("export_complete", %{"count" => count}, socket) do
-    duration = calculate_duration(socket.assigns.operation_start_time)
-    duration_text = format_duration(duration)
+    # Start export if not already started (for direct test calls)
+    state =
+      if socket.assigns.state.operation.mode != :export do
+        State.start_export(socket.assigns.state, System.monotonic_time(:millisecond))
+      else
+        socket.assigns.state
+      end
 
-    last_operation = %{
-      type: :export,
-      count: count,
-      duration: duration,
-      timestamp: DateTime.utc_now()
-    }
+    state = State.finish_export(state, count)
+    duration_text = State.format_duration(state.operation.last.duration_ms)
 
     {:noreply,
      socket
-     |> assign(
-       sync_status: :idle,
-       sync_error: nil,
-       last_sync: DateTime.utc_now(),
-       last_operation: last_operation,
-       operation_start_time: nil
-     )
+     |> assign(state: state)
      |> put_flash(:info, "Successfully exported #{count} note(s) in #{duration_text}")}
   end
 
   @impl true
   def handle_event("export_error", %{"message" => message}, socket) do
+    state = State.fail_export(socket.assigns.state, message)
+
     {:noreply,
      socket
-     |> assign(sync_status: :idle, error: message)
+     |> assign(state: state)
      |> put_flash(:error, "Export failed: #{message}")}
   end
 
   @impl true
   def handle_event("scan_files", _params, socket) do
-    socket =
-      socket
-      |> assign(
-        sync_error: nil,
-        import_status: :scanning,
-        operation_start_time: System.monotonic_time(:millisecond)
-      )
-      |> push_event("scan_files", %{})
+    start_time = System.monotonic_time(:millisecond)
 
-    {:noreply, socket}
+    case State.start_import(socket.assigns.state, start_time) do
+      {:error, :operation_in_progress, _state} ->
+        {:noreply, put_flash(socket, :error, "Operation already in progress")}
+
+      state ->
+        {:noreply,
+         socket
+         |> assign(state: state)
+         |> push_event("scan_files", %{})}
+    end
   end
 
   @impl true
   def handle_event("scan_started", %{"total" => total}, socket) do
-    {:noreply, assign(socket, import_status: {:importing, 0, total})}
+    # Start import if not already started (for direct test calls)
+    state =
+      if socket.assigns.state.operation.mode != :import do
+        State.start_import(socket.assigns.state, System.monotonic_time(:millisecond))
+      else
+        socket.assigns.state
+      end
+
+    state = State.import_scan_started(state, total)
+
+    {:noreply,
+     socket
+     |> assign(state: state)}
   end
 
   @impl true
   def handle_event("import_progress", %{"current" => current, "total" => total}, socket) do
-    {:noreply, assign(socket, import_status: {:importing, current, total})}
+    # Start import if not already started (for direct test calls)
+    state =
+      if socket.assigns.state.operation.mode != :import do
+        socket.assigns.state
+        |> State.start_import(System.monotonic_time(:millisecond))
+        |> State.import_scan_started(total)
+      else
+        socket.assigns.state
+      end
+
+    state = State.import_progress(state, current, total)
+
+    {:noreply,
+     socket
+     |> assign(state: state)}
   end
 
   @impl true
   def handle_event("import_error", %{"message" => message}, socket) do
+    state = State.fail_import(socket.assigns.state, message)
+
     {:noreply,
      socket
-     |> assign(error: message, import_status: :idle)
+     |> assign(state: state)
      |> put_flash(:error, "Import error: #{message}")}
   end
 
   @impl true
   def handle_event("import_files", %{"changes" => []}, socket) do
+    # For empty changes, just complete the import with empty results
+    state = State.complete_import(socket.assigns.state, [])
+
     {:noreply,
      socket
-     |> assign(import_status: :idle)
+     |> assign(state: state)
      |> put_flash(:info, "No changes to import")}
   end
 
   @impl true
   def handle_event("import_files", %{"changes" => changes}, socket) when is_list(changes) do
+    # Start import if not already in import mode (for direct calls from tests/hooks)
+    state =
+      if socket.assigns.state.operation.mode != :import do
+        State.start_import(socket.assigns.state, System.monotonic_time(:millisecond))
+      else
+        socket.assigns.state
+      end
+
     results =
       Enum.with_index(changes, fn change, _idx ->
         case Sync.import_change(change) do
@@ -250,36 +304,21 @@ defmodule XenoWeb.SyncLive do
         end
       end)
 
-    success_count = Enum.count(results, &(&1["status"] == "success"))
-    error_count = Enum.count(results, &(&1["status"] == "error"))
+    state = State.complete_import(state, results)
 
-    # Calculate operation duration
-    duration = calculate_duration(socket.assigns.operation_start_time)
-    duration_text = format_duration(duration)
+    # Safely access duration_ms and counts
+    {duration_text, success_count, error_count} =
+      case state.operation.last do
+        nil ->
+          {"0ms", 0, 0}
 
-    # Collect detailed errors for display
-    sync_errors =
-      results
-      |> Enum.filter(&(&1["status"] == "error"))
-      |> Enum.map(& &1["error"])
-
-    last_operation = %{
-      type: :import,
-      count: success_count,
-      failed: error_count,
-      duration: duration,
-      timestamp: DateTime.utc_now()
-    }
+        last ->
+          {State.format_duration(last.duration_ms), last.count, last.failed}
+      end
 
     socket =
       socket
-      |> assign(
-        last_sync: DateTime.utc_now(),
-        import_status: :idle,
-        last_operation: last_operation,
-        operation_start_time: nil,
-        sync_errors: if(sync_errors == [], do: nil, else: sync_errors)
-      )
+      |> assign(state: state)
       |> push_event("import_result", %{results: results})
 
     socket =
@@ -318,9 +357,11 @@ defmodule XenoWeb.SyncLive do
       reason: reason
     }
 
+    state = State.set_id_conflict(socket.assigns.state, conflict_data)
+
     {:noreply,
      socket
-     |> assign(id_conflict: conflict_data)
+     |> assign(state: state)
      |> put_flash(
        :warning,
        "ID conflict detected for #{path}. Please resolve the conflict."
@@ -342,9 +383,11 @@ defmodule XenoWeb.SyncLive do
       message: message
     }
 
+    state = State.set_path_mismatch(socket.assigns.state, mismatch_data)
+
     {:noreply,
      socket
-     |> assign(path_mismatch: mismatch_data)
+     |> assign(state: state)
      |> put_flash(
        :error,
        "Path mismatch: Note #{note_id} exists at #{actual_path}, but file is at #{expected_path}"
@@ -353,7 +396,7 @@ defmodule XenoWeb.SyncLive do
 
   @impl true
   def handle_event("resolve_conflict", %{"choice" => choice}, socket) do
-    case socket.assigns.id_conflict do
+    case socket.assigns.state.conflict.id_conflict do
       nil ->
         {:noreply, socket}
 
@@ -367,15 +410,17 @@ defmodule XenoWeb.SyncLive do
             _ -> conflict.server_id
           end
 
+        state = State.clear_id_conflict(socket.assigns.state)
+
         # Emit event back to FileSystemHook to apply the chosen ID
         socket =
           socket
+          |> assign(state: state)
           |> push_event("resolve_conflict", %{
             path: conflict.path,
             chosen_id: chosen_id,
             choice: choice
           })
-          |> assign(id_conflict: nil)
           |> put_flash(:info, "Conflict resolved. Retrying import with chosen ID...")
 
         {:noreply, socket}
@@ -384,51 +429,69 @@ defmodule XenoWeb.SyncLive do
 
   @impl true
   def handle_event("cancel_conflict", _params, socket) do
+    state = State.clear_id_conflict(socket.assigns.state)
+
     {:noreply,
      socket
-     |> assign(id_conflict: nil)
+     |> assign(state: state)
      |> put_flash(:info, "Conflict resolution cancelled")}
   end
 
   @impl true
   def handle_event("clear_errors", _params, socket) do
-    {:noreply, assign(socket, sync_errors: nil, error: nil)}
+    state = State.clear_errors(socket.assigns.state)
+
+    {:noreply,
+     socket
+     |> assign(state: state)}
   end
 
   @impl true
   def handle_event("observer_supported", %{"supported" => supported}, socket) do
-    {:noreply, assign(socket, observer_supported: supported)}
+    state = State.set_observer_support(socket.assigns.state, supported)
+
+    {:noreply,
+     socket
+     |> assign(state: state)}
   end
 
   @impl true
   def handle_event("start_watching", _params, socket) do
+    state = State.start_watching(socket.assigns.state)
+
     {:noreply,
      socket
-     |> assign(watching_enabled: true)
+     |> assign(state: state)
      |> push_event("start_file_observer", %{})}
   end
 
   @impl true
   def handle_event("stop_watching", _params, socket) do
+    state = State.stop_watching(socket.assigns.state)
+
     {:noreply,
      socket
-     |> assign(watching_enabled: false)
+     |> assign(state: state)
      |> push_event("stop_file_observer", %{})}
   end
 
   @impl true
   def handle_event("watching_started", _params, socket) do
+    state = State.start_watching(socket.assigns.state)
+
     {:noreply,
      socket
-     |> assign(watching_enabled: true)
+     |> assign(state: state)
      |> put_flash(:info, "Auto-sync active")}
   end
 
   @impl true
   def handle_event("watching_stopped", _params, socket) do
+    state = State.stop_watching(socket.assigns.state)
+
     {:noreply,
      socket
-     |> assign(watching_enabled: false)
+     |> assign(state: state)
      |> put_flash(:info, "Auto-sync paused")}
   end
 
@@ -521,28 +584,5 @@ defmodule XenoWeb.SyncLive do
       {render_slot(@inner_block)}
     </div>
     """
-  end
-
-  # Helper functions for duration tracking
-
-  defp calculate_duration(nil), do: 0
-
-  defp calculate_duration(start_time) do
-    System.monotonic_time(:millisecond) - start_time
-  end
-
-  defp format_duration(duration_ms) when duration_ms < 1000 do
-    "#{duration_ms}ms"
-  end
-
-  defp format_duration(duration_ms) when duration_ms < 60_000 do
-    seconds = Float.round(duration_ms / 1000, 1)
-    "#{seconds}s"
-  end
-
-  defp format_duration(duration_ms) do
-    minutes = div(duration_ms, 60_000)
-    seconds = div(rem(duration_ms, 60_000), 1000)
-    "#{minutes}m #{seconds}s"
   end
 end
