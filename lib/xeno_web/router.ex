@@ -21,6 +21,7 @@ defmodule XenoWeb.Router do
     live "/", StartLive
     live "/info", InfoLive
 
+    live "/notes/new", NoteCreateLive
     live "/notes/:id", NoteShowLive
     live "/notes/:id/edit", NoteEditLive
 
