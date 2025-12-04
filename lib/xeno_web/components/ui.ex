@@ -226,6 +226,7 @@ defmodule XenoWeb.Components.UI do
     ~H"""
     <wa-button
       id={@computed_id}
+      role="button"
       variant={to_string(@variant)}
       appearance={to_string(@appearance)}
       size={to_string(@size)}

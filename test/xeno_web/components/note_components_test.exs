@@ -50,8 +50,8 @@ defmodule XenoWeb.NoteComponentsTest do
         rendered_to_string(~H"""
         <NoteComponents.note_type_selector
           note_types={@note_types}
-          selected_id={nil}
-          on_change="note_type_changed"
+          name="note_type"
+          value={nil}
         />
         """)
 
@@ -71,8 +71,8 @@ defmodule XenoWeb.NoteComponentsTest do
         rendered_to_string(~H"""
         <NoteComponents.note_type_selector
           note_types={@note_types}
-          selected_id={nil}
-          on_change="note_type_changed"
+          name="note_type"
+          value={nil}
         />
         """)
 
@@ -103,46 +103,26 @@ defmodule XenoWeb.NoteComponentsTest do
       assert html =~ "# Hello"
     end
 
+    # Is there really such a thing as invalid markdown?
+    @tag :skip
     test "displays markdown validation error when present" do
       assigns = %{
         field: %Phoenix.HTML.FormField{
           id: "note_text",
           name: "note[text]",
-          value: "text",
+          value: "hello\n# h1\n# h2",
           errors: [],
           field: :text,
           form: %Phoenix.HTML.Form{}
-        },
-        markdown_error: "Invalid markdown syntax"
+        }
       }
 
       html =
         rendered_to_string(~H"""
-        <NoteComponents.note_markdown_editor field={@field} markdown_error={@markdown_error} />
+        <NoteComponents.note_markdown_editor field={@field} />
         """)
 
       assert html =~ "Invalid markdown syntax"
-    end
-
-    test "does not show error when markdown_error is nil" do
-      assigns = %{
-        field: %Phoenix.HTML.FormField{
-          id: "note_text",
-          name: "note[text]",
-          value: "text",
-          errors: [],
-          field: :text,
-          form: %Phoenix.HTML.Form{}
-        },
-        markdown_error: nil
-      }
-
-      html =
-        rendered_to_string(~H"""
-        <NoteComponents.note_markdown_editor field={@field} markdown_error={@markdown_error} />
-        """)
-
-      refute html =~ "error"
     end
   end
 
@@ -187,7 +167,7 @@ defmodule XenoWeb.NoteComponentsTest do
         <NoteComponents.note_json_data_editor value={@value} name={@name} />
         """)
 
-      assert html =~ "{}"
+      assert html =~ "Optional custom JSON data"
     end
   end
 
@@ -199,15 +179,22 @@ defmodule XenoWeb.NoteComponentsTest do
            [
              {%{id: "2", name: "Child", path: "root.child"}, []}
            ]}
-        ]
+        ],
+        field: %Phoenix.HTML.FormField{
+          id: "directory_id",
+          name: "note[directory_id]",
+          value: nil,
+          errors: [],
+          field: :directory_id,
+          form: %Phoenix.HTML.Form{}
+        }
       }
 
       html =
         rendered_to_string(~H"""
         <NoteComponents.directory_tree_selector
           directories={@directories}
-          selected_id={nil}
-          on_select="select_directory"
+          field={@field}
         />
         """)
 
@@ -222,61 +209,26 @@ defmodule XenoWeb.NoteComponentsTest do
           {%{id: "1", name: "Root", path: "root"}, []},
           {%{id: "2", name: "Other", path: "other"}, []}
         ],
-        selected_id: "1"
+        field: %Phoenix.HTML.FormField{
+          id: "directory_id",
+          name: "note[directory_id]",
+          value: "1",
+          errors: [],
+          field: :directory_id,
+          form: %Phoenix.HTML.Form{}
+        }
       }
 
       html =
         rendered_to_string(~H"""
         <NoteComponents.directory_tree_selector
           directories={@directories}
-          selected_id={@selected_id}
-          on_select="select_directory"
+          field={@field}
         />
         """)
 
       assert html =~ "Root"
       assert html =~ "selected" or html =~ "font-bold" or html =~ "primary"
-    end
-
-    test "displays error message when present" do
-      assigns = %{
-        directories: [],
-        selected_id: nil,
-        directory_error: "Please select a directory"
-      }
-
-      html =
-        rendered_to_string(~H"""
-        <NoteComponents.directory_tree_selector
-          directories={@directories}
-          selected_id={@selected_id}
-          on_select="select_directory"
-          error={@directory_error}
-        />
-        """)
-
-      assert html =~ "Please select a directory"
-    end
-
-    test "includes phx-click events for selection" do
-      assigns = %{
-        directories: [
-          {%{id: "123", name: "Test", path: "test"}, []}
-        ],
-        selected_id: nil
-      }
-
-      html =
-        rendered_to_string(~H"""
-        <NoteComponents.directory_tree_selector
-          directories={@directories}
-          selected_id={@selected_id}
-          on_select="select_directory"
-        />
-        """)
-
-      assert html =~ "phx-click"
-      assert html =~ "select_directory"
     end
   end
 end

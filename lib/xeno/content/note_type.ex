@@ -6,6 +6,9 @@ defmodule Xeno.Content.NoteType do
   when they are created. NoteTypes are mutable and can be changed at any time.
   Changes to a NoteType do not affect existing Notes created from it.
   """
+
+  alias Xeno.Content.Calculations
+
   use Ash.Resource,
     otp_app: :xeno,
     domain: Xeno.Content,
@@ -68,6 +71,12 @@ defmodule Xeno.Content.NoteType do
     end
 
     timestamps()
+  end
+
+  calculations do
+    calculate :note_params, :string, Calculations.NoteParams do
+      description "Returns params to be used in Note changesets"
+    end
   end
 
   identities do

@@ -272,6 +272,7 @@ defmodule Xeno.Generators do
 
     defaults_gen =
       StreamData.fixed_map(%{
+        overwrite_filename: false,
         name: name_generator,
         text: text_generator,
         data: data_generator,

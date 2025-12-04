@@ -12,50 +12,28 @@
         <.stack gap={:l}>
           <.input field={@form[:name]} type="text" label="Name" required />
 
-          <div>
-            <label class="block text-sm font-medium mb-2">
-              Filename
-            </label>
-            <div class="px-3 py-2 bg-base-200 rounded-lg font-mono text-sm opacity-70">
-              {@note.filename}
-            </div>
-            <p class="mt-1 text-xs opacity-60">Filename cannot be changed</p>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium mb-2">
-              Tags
-            </label>
-            <input
-              type="text"
-              name="note[tags_string]"
-              value={@tags_string}
-              placeholder="space separated tags"
-              class="input input-bordered w-full"
-            />
-            <p class="mt-1 text-xs opacity-60">Enter tags separated by spaces</p>
-          </div>
-
           <.input
-            field={@form[:text]}
-            type="textarea"
-            label="Text Content"
-            rows="15"
-            class="font-mono text-sm"
+            field={@form[:filename]}
+            type="text"
+            label="Filename"
+            disabled
           />
 
-          <div>
-            <label class="block text-sm font-medium mb-2">
-              Data (JSON)
-            </label>
-            <textarea
-              name="note[data_string]"
-              rows="8"
-              class="textarea textarea-bordered w-full font-mono text-sm"
-              placeholder="{}"
-            >{@data_string}</textarea>
-            <p class="mt-1 text-xs opacity-60">Must be valid JSON</p>
-          </div>
+          <XenoWeb.NoteComponents.note_tags_input
+            field={@form[:tags]} 
+            value={@note.tags_string}
+          />
+
+          <%!-- Markdown Editor --%>
+          <XenoWeb.NoteComponents.note_markdown_editor
+            field={@form[:text]}
+          />
+
+          <XenoWeb.NoteComponents.note_json_data_editor
+            label="JSON Data"
+            field={@form[:data]}
+            value={@note.data_json_string}
+          />
 
           <.button_group>
             <button type="submit" class="btn btn-primary">

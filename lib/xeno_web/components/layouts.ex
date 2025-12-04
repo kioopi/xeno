@@ -47,6 +47,12 @@ defmodule XenoWeb.Layouts do
           class="-mb-6 flex flex-wrap justify-center gap-x-12 gap-y-3 text-sm/6"
         >
           <.link
+            navigate={~p"/notes/new"}
+            class="text-slate-900 hover:underline hover:text-slate-600 dark:text-gray-400 dark:hover:text-white"
+          >
+            Create Note
+          </.link>
+          <.link
             navigate={~p"/info"}
             class="text-slate-900 hover:underline hover:text-slate-600 dark:text-gray-400 dark:hover:text-white"
           >

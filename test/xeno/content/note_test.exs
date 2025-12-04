@@ -129,7 +129,7 @@ defmodule Xeno.Content.NoteTest do
         tags: ["custom"]
       }
 
-      assert {:ok, note} = Note.create(attrs)
+      assert note = Note.create!(attrs)
       assert note.text == "Override text"
       assert note.data == %{"different" => "data"}
       assert note.tags == ["custom"]
@@ -165,6 +165,15 @@ defmodule Xeno.Content.NoteTest do
                Note.update(note, %{
                  tags: ["NEW", "  old  ", "new"]
                })
+
+      assert updated.tags == ["new", "old"]
+    end
+
+    test "accepts tags as space separated stirng", %{note: note} do
+      updated =
+        Note.update!(note, %{
+          tags: "NEW old new"
+        })
 
       assert updated.tags == ["new", "old"]
     end

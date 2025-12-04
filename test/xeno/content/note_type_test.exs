@@ -80,4 +80,21 @@ defmodule Xeno.Content.NoteTypeTest do
       assert %DateTime{} = note_type.updated_at
     end
   end
+
+  describe "note_params" do
+    test "returns params for note changesets" do
+      note_type =
+        generate(
+          note_type(initial_tags: ["1", "2"], initial_text: "hello", initial_data: %{w: 0})
+        )
+
+      note_type = Ash.load!(note_type, :note_params)
+
+      assert note_type.note_params == %{
+               "tags" => ["1", "2"],
+               "text" => "hello",
+               "data" => %{"w" => 0}
+             }
+    end
+  end
 end

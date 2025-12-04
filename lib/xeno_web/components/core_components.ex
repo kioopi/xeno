@@ -233,17 +233,7 @@ defmodule XenoWeb.CoreComponents do
     """
   end
 
-  @doc """
-  Renders an error message with icon.
-
-  Used by form inputs to display validation errors consistently.
-
-  ## Examples
-
-      <.error>Invalid email format</.error>
-  """
-  slot :inner_block, required: true
-
+  # Helper used by inputs to generate form errors
   def error(assigns) do
     ~H"""
     <p class="mt-1.5 flex gap-2 items-center text-sm text-error">

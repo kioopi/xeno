@@ -11,19 +11,23 @@
         class="space-y-4"
       >
         <%!-- Directory Selection --%>
+        <%!-- <XenoWeb.NoteComponents.directory_tree_selector --%>
+        <%!--   directories={@directories} --%>
+        <%!--   selected_id={@selected_directory_id} --%>
+        <%!--   on_select="select_directory" --%>
+        <%!--   error={get_argument_error(@form, :directory_id)} --%>
+        <%!-- /> --%>
+
         <XenoWeb.NoteComponents.directory_tree_selector
           directories={@directories}
-          selected_id={@selected_directory_id}
-          on_select="select_directory"
-          error={get_argument_error(@form, :directory_id)}
+          field={@form[:directory_id]}
         />
 
         <%!-- Note Type Selection --%>
         <XenoWeb.NoteComponents.note_type_selector
+          field={@form[:note_type_id]}
+          label="Note Type"
           note_types={@note_types}
-          selected_id={@selected_note_type}
-          on_change="note_type_changed"
-          error={get_argument_error(@form, :note_type_id)}
         />
 
         <%!-- Name Input --%>
@@ -34,27 +38,22 @@
           field={@form[:filename]}
           type="text"
           label="Filename"
-          phx-change="filename_changed"
         />
 
         <%!-- Tags Input --%>
         <XenoWeb.NoteComponents.note_tags_input
-          value={@tags_string}
-          name="note[tags_string]"
-          label="Tags"
+          field={@form[:tags]}
+          field={@form[:tags]} value={tags_to_string(@form[:tags].value)}
         />
 
         <%!-- Markdown Editor --%>
         <XenoWeb.NoteComponents.note_markdown_editor
           field={@form[:text]}
-          markdown_error={@markdown_error}
         />
 
         <%!-- JSON Data Editor --%>
         <XenoWeb.NoteComponents.note_json_data_editor
-          value={@data_string}
-          name="note[data_string]"
-          json_error={@json_error}
+          field={@form[:data]} value={data_to_string(@form[:data].value)}
         />
 
         <%!-- Action Buttons --%>

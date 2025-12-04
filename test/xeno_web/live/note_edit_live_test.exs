@@ -57,7 +57,7 @@ defmodule XenoWeb.NoteEditLiveTest do
     test "shows tags as space-separated string", %{conn: conn, note: note} do
       {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
 
-      assert has_element?(view, "input[name='note[tags_string]']")
+      assert has_element?(view, "input[name='note[tags]']")
       html = render(view)
       assert html =~ "example test"
     end
@@ -67,15 +67,19 @@ defmodule XenoWeb.NoteEditLiveTest do
 
       html = render(view)
       assert html =~ "key" and html =~ "value"
-      assert has_element?(view, "textarea[name='note[data_string]']")
+      assert has_element?(view, "textarea[name='note[data]']")
     end
 
     test "displays read-only filename", %{conn: conn, note: note} do
       {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
 
+      assert has_element?(
+               view,
+               "input[name='note[filename]'][disabled][value='#{note.filename}']"
+             )
+
       html = render(view)
       assert html =~ note.filename
-      assert html =~ "Filename cannot be changed"
     end
 
     test "preloads directory and note_type relationships", %{conn: conn, note: note} do
@@ -114,7 +118,7 @@ defmodule XenoWeb.NoteEditLiveTest do
 
       html =
         view
-        |> form("#note-edit-form", note: %{data_string: "{invalid json"})
+        |> form("#note-edit-form", note: %{data: "{invalid json"})
         |> render_change()
 
       assert html =~ "invalid" or html =~ "JSON"
@@ -131,50 +135,42 @@ defmodule XenoWeb.NoteEditLiveTest do
       assert unchanged_note.name == "Test Note"
     end
 
-    test "preserves tags_string when editing other fields", %{conn: conn, note: note} do
-      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
+    test "preserves tags when editing other fields", %{conn: conn, note: note} do
+      conn
+      |> visit(~p"/notes/#{note.id}/edit")
+      |> fill_in("Tags", with: "all my tags")
+      |> fill_in("Markdown Content", with: "# the head")
+      |> click_button("Save Changes")
 
-      view
-      |> form("#note-edit-form", note: %{tags_string: "new unsaved tags"})
-      |> render_change()
+      changed_note = Note.get!(note.id)
 
-      html =
-        view
-        |> form("#note-edit-form", note: %{text: "Updated text content"})
-        |> render_change()
-
-      assert html =~ "new unsaved tags"
+      assert changed_note.tags == ["all", "my", "tags"]
     end
 
-    test "preserves data_string when editing other fields", %{conn: conn, note: note} do
-      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
+    test "preserves data when editing other fields", %{conn: conn, note: note} do
+      conn
+      |> visit(~p"/notes/#{note.id}/edit")
+      |> fill_in("JSON Data", with: "{ \"some\": \"data\" }")
+      |> fill_in("Markdown Content", with: "# the head")
+      |> click_button("Save Changes")
 
-      view
-      |> form("#note-edit-form", note: %{data_string: ~s({"unsaved": "data"})})
-      |> render_change()
+      changed_note = Note.get!(note.id)
 
-      html =
-        view
-        |> form("#note-edit-form", note: %{text: "Updated text content"})
-        |> render_change()
-
-      assert html =~ "unsaved"
+      assert changed_note.data == %{"some" => "data"}
     end
 
-    test "preserves both tags_string and data_string when editing name", %{conn: conn, note: note} do
-      {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
+    test "preserves both tags and data when editing name", %{conn: conn, note: note} do
+      conn
+      |> visit(~p"/notes/#{note.id}/edit")
+      |> fill_in("Tags", with: "all my tags")
+      |> fill_in("JSON Data", with: "{ \"some\": \"data\" }")
+      |> fill_in("Name", with: "George")
+      |> click_button("Save Changes")
 
-      view
-      |> form("#note-edit-form", note: %{tags_string: "alpha beta", data_string: ~s({"temp": 1})})
-      |> render_change()
+      changed_note = Note.get!(note.id)
 
-      html =
-        view
-        |> form("#note-edit-form", note: %{name: "New Name"})
-        |> render_change()
-
-      assert html =~ "alpha beta"
-      assert html =~ "temp"
+      assert changed_note.data == %{"some" => "data"}
+      assert changed_note.tags == ["all", "my", "tags"]
     end
   end
 
@@ -232,7 +228,7 @@ defmodule XenoWeb.NoteEditLiveTest do
       {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
 
       view
-      |> form("#note-edit-form", note: %{tags_string: "new updated tags"})
+      |> form("#note-edit-form", note: %{tags: "new updated tags"})
       |> render_submit()
 
       {:ok, updated} = Note.get(note.id)
@@ -242,10 +238,10 @@ defmodule XenoWeb.NoteEditLiveTest do
     test "updates data (JSON string to map conversion)", %{conn: conn, note: note} do
       {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
 
-      json_string = ~s({"newkey": "newvalue", "count": 100})
+      data = ~s({"newkey": "newvalue", "count": 100})
 
       view
-      |> form("#note-edit-form", note: %{data_string: json_string})
+      |> form("#note-edit-form", note: %{data: data})
       |> render_submit()
 
       {:ok, updated} = Note.get(note.id)
@@ -258,18 +254,28 @@ defmodule XenoWeb.NoteEditLiveTest do
       {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
 
       view
-      |> form("#note-edit-form", note: %{tags_string: "one two three"})
+      |> form("#note-edit-form", note: %{tags: "one two three"})
       |> render_submit()
 
       {:ok, updated} = Note.get(note.id)
       assert Enum.sort(updated.tags) == ["one", "three", "two"]
     end
 
+    # test "converts space-separated tags to array 2", %{conn: conn, note: note} do
+    #   conn
+    #   |> visit(~p"/notes/#{note.id}/edit")
+    #   |> fill_in("Tags", with: "one two three")
+    #   |> select("Elessar", from: "Aliases")
+    #   |> choose("Human") # <- choose a radio option
+    #   |> check("Ranger") # <- check a checkbox
+    #   |> click_button("Create Note")
+    # end
+
     test "normalizes tags (lowercase, trim, deduplicate)", %{conn: conn, note: note} do
       {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
 
       view
-      |> form("#note-edit-form", note: %{tags_string: "  TAG  tag   Another  "})
+      |> form("#note-edit-form", note: %{tags: "  TAG  tag   Another  "})
       |> render_submit()
 
       {:ok, updated} = Note.get(note.id)
@@ -280,7 +286,7 @@ defmodule XenoWeb.NoteEditLiveTest do
       {:ok, view, _html} = live(conn, ~p"/notes/#{note.id}/edit")
 
       view
-      |> form("#note-edit-form", note: %{tags_string: ""})
+      |> form("#note-edit-form", note: %{tags: ""})
       |> render_submit()
 
       {:ok, updated} = Note.get(note.id)

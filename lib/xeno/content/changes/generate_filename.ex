@@ -12,24 +12,34 @@ defmodule Xeno.Content.Changes.GenerateFilename do
   """
 
   use Ash.Resource.Change
+  alias Ash.Changeset
 
   @impl true
   def change(changeset, _opts, _context) do
-    case Ash.Changeset.get_attribute(changeset, :name) do
-      nil ->
+    case Changeset.fetch_change(changeset, :name) do
+      :error ->
         changeset
 
-      name when is_binary(name) ->
+      {:ok, ""} ->
+        changeset
+
+      {:ok, name} when is_binary(name) ->
         filename = generate_filename(name)
-        Ash.Changeset.force_change_attribute(changeset, :filename, filename)
+        Changeset.force_change_attribute(changeset, :filename, filename)
+
+      {:ok, _} ->
+        changeset
     end
   end
 
+  # TODO: this should be a calculation
   defp generate_filename(name) do
     name
     |> String.downcase()
-    |> String.replace(~r/[^a-z0-9_]+/, "_")
+    |> String.replace(~r/[^a-z0-9_-]+/, "_")
     |> String.replace(~r/_+/, "_")
+    |> String.replace(~r/-+/, "-")
     |> String.trim("_")
+    |> String.trim("-")
   end
 end

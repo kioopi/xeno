@@ -14,6 +14,7 @@ defmodule Xeno.Content.Note do
   alias Xeno.Content.Changes
   alias Xeno.Content.Calculations
   alias Xeno.Content.Preparations
+  alias Xeno.Content.Validations
   alias Xeno.Files.Directory
   alias Xeno.Content.NoteType
 
@@ -52,28 +53,46 @@ defmodule Xeno.Content.Note do
 
     create :create do
       primary? true
-      accept [:name, :filename, :text, :data, :tags]
+      accept [:name, :filename, :text, :tags, :data, :note_type_id, :directory_id]
 
-      argument :note_type_id, :uuid do
-        allow_nil? false
+      argument :overwrite_filename, :boolean, default: false
+
+      argument :tags, :term do
+        allow_nil? true
+        description "Tags as either a list of strings or a space-separated string"
       end
 
-      argument :directory_id, :uuid do
-        allow_nil? false
-      end
+      validate {Validations.ValidMarkdown, attribute: :text}
 
-      change Changes.GenerateFilename, where: [changing(:name), negate(changing(:filename))]
-      change Changes.InitializeFromType
-      change Changes.NormalizeTags, where: changing(:tags)
+      change Changes.GenerateFilename,
+        where: [changing(:name), argument_equals(:overwrite_filename, true)]
 
-      change manage_relationship(:directory_id, :directory, type: :append)
+      change Changes.GenerateFilename,
+        where: [changing(:name), negate(changing(:filename)), absent(:filename)]
+
+      change Changes.SplitTagsString
+      change Changes.NormalizeTags
+      change Changes.SetNoteType
     end
 
     update :update do
       primary? true
-      accept [:name, :text, :data, :tags]
+      accept [:name, :text, :data]
       require_atomic? false
 
+      argument :tags, :term do
+        allow_nil? true
+        description "Tags as either a list of strings or a space-separated string"
+      end
+
+      # argument :data_string, :string do
+      #   description "JSON string to be parsed into data map"
+      # end
+
+      # validate {Validations.ValidJsonString, attribute: :data_string}
+      validate {Validations.ValidMarkdown, attribute: :text}
+
+      change Changes.SplitTagsString
       change Changes.NormalizeTags, where: changing(:tags)
     end
 
@@ -254,11 +273,28 @@ defmodule Xeno.Content.Note do
     calculate :html, :string, Calculations.Html do
       description "HTML rendered from markdown text using Earmark"
     end
+
+    calculate :tags_string, :string, expr(string_join(tags, " "))
+
+    calculate :data_json_string, :string, Calculations.Json do
+      description "JSON string representation of the data map"
+    end
   end
 
   identities do
     identity :unique_filename_in_directory, [:directory_id, :filename] do
       description "Ensures filenames are unique within a directory"
     end
+  end
+
+  def json_string(nil), do: "{}"
+  def json_string(""), do: "{}"
+
+  def json_string(data) when is_binary(data) do
+    data
+  end
+
+  def json_string(data) do
+    Jason.encode!(data, pretty: true)
   end
 end

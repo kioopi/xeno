@@ -4,6 +4,7 @@ defmodule XenoWeb.NoteComponents do
   """
   use XenoWeb, :html
   alias XenoWeb.CoreComponents
+  alias Xeno.Content.Note
 
   @doc """
   Renders a form field wrapper with label, error display, and helper text.
@@ -24,8 +25,9 @@ defmodule XenoWeb.NoteComponents do
   * `label_suffix` - Optional content after the label (e.g., badges)
   """
   attr :label, :string, required: true
+  attr :label_for, :string, required: true
   attr :required, :boolean, default: false
-  attr :error, :string, default: nil
+  attr :errors, :list, default: []
   attr :error_class, :string, default: "text-error"
   attr :helper_text, :string, default: nil
 
@@ -35,7 +37,7 @@ defmodule XenoWeb.NoteComponents do
   def form_field(assigns) do
     ~H"""
     <div class="form-control w-full">
-      <label class="label">
+      <label class="label" for={@label_for}>
         <span class="label-text">{@label}</span>
         <span :if={@required} class="label-text-alt text-error">(required)</span>
         {render_slot(@label_suffix)}
@@ -43,11 +45,9 @@ defmodule XenoWeb.NoteComponents do
 
       {render_slot(@inner_block)}
 
-      <CoreComponents.error :if={@error}>
-        {@error}
-      </CoreComponents.error>
+      <CoreComponents.error :for={msg <- @errors}>{msg}</CoreComponents.error>
 
-      <label :if={!@error && @helper_text} class="label">
+      <label :if={!@errors && @helper_text} class="label">
         <span class="label-text-alt">{@helper_text}</span>
       </label>
     </div>
@@ -64,22 +64,34 @@ defmodule XenoWeb.NoteComponents do
   * `label` - Input label (optional, default: "Tags")
   * `placeholder` - Input placeholder (optional)
   """
-  attr :value, :string, required: true
-  attr :name, :string, required: true
+  attr :field, Phoenix.HTML.FormField,
+    doc: "a form field struct retrieved from the form, for example: @form[:email]"
+
   attr :label, :string, default: "Tags"
-  attr :placeholder, :string, default: "space separated tags"
+
+  attr :id, :any, default: nil
+  attr :name, :any
+  attr :value, :any
+
+  attr :errors, :list, default: []
+  attr :class, :string, default: nil, doc: "the input class to use over defaults"
+  attr :error_class, :string, default: nil, doc: "the input error class to use over defaults"
+
+  attr :rest, :global,
+    include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
+                multiple pattern placeholder readonly required rows size step),
+    default: %{placeholder: "space separated tags"}
 
   def note_tags_input(assigns) do
+    assigns =
+      assigns
+      |> assign(:attrs, assigns_to_attributes(assigns))
+
     ~H"""
-    <.form_field label={@label} helper_text="Enter tags separated by spaces">
-      <input
+      <CoreComponents.input
+        {@attrs}
         type="text"
-        name={@name}
-        value={@value}
-        placeholder={@placeholder}
-        class="input input-bordered w-full"
       />
-    </.form_field>
     """
   end
 
@@ -89,91 +101,136 @@ defmodule XenoWeb.NoteComponents do
   ## Attributes
 
   * `note_types` - List of note type structs with id, name, and description
-  * `selected_id` - Currently selected note type ID (optional)
-  * `on_change` - Event name to trigger on selection change
-  * `error` - Optional error message string (for Ash argument errors)
   """
   attr :note_types, :list, required: true
-  attr :selected_id, :string, default: nil
-  attr :on_change, :string, required: true
-  attr :error, :string, default: nil
+
+  attr :field, Phoenix.HTML.FormField,
+    doc: "a form field struct retrieved from the form, for example: @form[:email]"
+
+  attr :label, :string, default: "Note Type"
+
+  attr :id, :any, default: nil
+  attr :name, :any
+  attr :value, :any
+
+  attr :errors, :list, default: []
+  attr :class, :string, default: nil, doc: "the input class to use over defaults"
+  attr :error_class, :string, default: nil, doc: "the input error class to use over defaults"
+  attr :prompt, :string, default: "Select Note Type", doc: "the prompt for the select"
+
+  attr :rest, :global,
+    include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
+                multiple pattern readonly required rows size step)
 
   def note_type_selector(assigns) do
+    assigns =
+      assigns
+      |> assign(:attrs, assigns_to_attributes(assigns))
+
     ~H"""
-    <.form_field label="Note Type" required={true} error={@error}>
-      <select
-        name="note_type_id"
-        phx-change={@on_change}
-        class="select select-bordered w-full"
-      >
-        <option value="">Select a note type...</option>
-        <%= for note_type <- @note_types do %>
-          <option value={note_type.id} selected={note_type.id == @selected_id}>
-            {note_type.name}{if note_type.description, do: " - #{note_type.description}"}
-          </option>
-        <% end %>
-      </select>
-    </.form_field>
+    <CoreComponents.input
+      {@attrs}
+      type="select"
+      options={note_type_options(@note_types)} 
+      />
     """
   end
 
+  defp note_type_options(note_types) do
+    [
+      [key: "Select Note Type", value: "", disabled: true, selected: true]
+      | Enum.map(note_types, fn nt ->
+          {note_type_label(nt), nt.id}
+        end)
+    ]
+  end
+
+  defp note_type_label(note_type) do
+    note_type.name <> ((note_type.description && " - #{note_type.description}") || "")
+  end
+
   @doc """
-  Renders a textarea for markdown content with optional validation error display.
+  Renders a textarea for markdown content with validation.
 
   ## Attributes
 
   * `field` - Phoenix.HTML.FormField for the text field
   * `rows` - Number of textarea rows (optional, default: 15)
-  * `markdown_error` - Optional validation error message
   """
   attr :field, Phoenix.HTML.FormField, required: true
   attr :rows, :integer, default: 15
-  attr :markdown_error, :string, default: nil
 
+  # TODO accept all CodeComponent input attributes like note_type_selector
   def note_markdown_editor(assigns) do
     ~H"""
-    <.form_field label="Markdown Content" error={@markdown_error} error_class="text-warning">
-      <textarea
-        id={@field.id}
-        name={@field.name}
-        rows={@rows}
-        class="textarea textarea-bordered w-full font-mono text-sm"
-        placeholder="Enter markdown content..."
-      >{Phoenix.HTML.Form.normalize_value("textarea", @field.value)}</textarea>
-    </.form_field>
+    <CoreComponents.input
+      type="textarea"
+      field={@field}
+      label="Markdown Content"
+      class="textarea textarea-bordered w-full font-mono text-sm"
+
+      />
     """
   end
 
   @doc """
-  Renders a textarea for JSON data with optional validation error display.
+  Renders a textarea for JSON data with validation.
 
   ## Attributes
 
-  * `value` - Current JSON string value
-  * `name` - Form field name
+  * `field` - Phoenix.HTML.FormField for the data_string field
   * `rows` - Number of textarea rows (optional, default: 8)
-  * `json_error` - Optional validation error message
   """
-  attr :value, :string, required: true
-  attr :name, :string, required: true
-  attr :rows, :integer, default: 8
-  attr :json_error, :string, default: nil
+  attr :field, Phoenix.HTML.FormField,
+    doc: "a form field struct retrieved from the form, for example: @form[:email]"
 
+  attr :label, :string, default: "Note Type"
+
+  attr :id, :any, default: nil
+  attr :name, :any
+  attr :value, :any
+
+  attr :errors, :list, default: []
+  attr :class, :string, default: nil, doc: "the input class to use over defaults"
+  attr :error_class, :string, default: nil, doc: "the input error class to use over defaults"
+  attr :prompt, :string, default: "Select Note Type", doc: "the prompt for the select"
+  attr :rows, :integer, default: 8
+
+  attr :rest, :global,
+    include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
+                multiple pattern readonly placeholder required rows size step),
+    default: %{placeholder: "Optional custom JSON data for this note"}
+
+  # TODO: this first needs to become a phoenix input
+  # and later a better JSON editor can be integrated
   def note_json_data_editor(assigns) do
+    assigns =
+      assigns
+      |> assign(:attrs, assigns_to_attributes(assigns))
+
     ~H"""
-    <.form_field
-      label="JSON Data"
-      error={@json_error}
-      helper_text="Optional custom JSON data for this note"
-    >
-      <textarea
-        name={@name}
-        rows={@rows}
-        class="textarea textarea-bordered w-full font-mono text-sm"
-        placeholder="{}"
-      >{@value}</textarea>
-    </.form_field>
+    <CoreComponents.input
+        type="textarea"
+        {@attrs}
+      />
     """
+  end
+
+  def json_data_to_string(assigns) do
+    if Map.has_key?(assigns, :value) do
+      assigns |> assign(:value, Note.json_string(assigns.value))
+    else
+      if Map.has_key?(assigns, :field) do
+        assigns =
+          assigns
+          |> assign(:field, Map.update(assigns.field, :value, "{}", &Note.json_string(&1)))
+          |> assign(:value, Note.json_string(assigns.field.value))
+
+        assigns
+      else
+        assigns
+      end
+    end
   end
 
   @doc """
@@ -182,31 +239,44 @@ defmodule XenoWeb.NoteComponents do
   ## Attributes
 
   * `directories` - List of {directory, children} tuples (nested structure)
-  * `selected_id` - ID of currently selected directory
-  * `on_select` - Event name to trigger on directory selection
-  * `error` - Optional error message to display
   """
   attr :directories, :list, required: true
-  attr :selected_id, :string, default: nil
-  attr :on_select, :string, required: true
-  attr :error, :string, default: nil
+  attr :field, Phoenix.HTML.FormField, required: true
+  # attr :on_select, :string, required: true
+  # attr :error, :string, default: nil
+  attr :rest, :global,
+    include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
+                multiple pattern placeholder readonly required rows size step)
 
-  def directory_tree_selector(assigns) do
+  def directory_tree_selector(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
+    errors = if Phoenix.Component.used_input?(field), do: field.errors, else: []
+    translated_errors = Enum.map(errors, &CoreComponents.translate_error(&1))
+
+    assigns =
+      assigns
+      |> assign(field: nil)
+      |> assign(id: field.id)
+      |> assign(errors: translated_errors)
+      |> assign_new(:name, fn -> field.name end)
+      |> assign_new(:value, fn -> field.value end)
+
     ~H"""
     <.form_field
-      label="Parent Directory"
+      label="Directory"
       required={true}
-      error={@error}
+      errors={@errors}
+      label_for="form_directory_id"
       helper_text="Select the directory where this note will be created"
     >
-      <div class="border border-base-300 rounded-lg p-3 bg-base-100 max-h-64 overflow-y-auto">
-        <wa-tree id="directory-selector-tree" class="w-full">
+      <div id={@name <> "-directory-selector"} data-field-name={@name} class="border border-base-300 rounded-lg p-3 bg-base-100 max-h-64 overflow-y-auto">
+        <input type="hidden" name={@name} id="form_directory_id" class="dirtree-input" value={@value} disabled={@rest[:disabled]} />
+        <wa-tree class="w-full dirtree-tree">
           <.selector_tree_item
             :for={{directory, children} <- @directories}
             directory={directory}
             children={children}
-            selected_id={@selected_id}
-            on_select={@on_select}
+            selected_id={@value}
+            name={@name}
           />
         </wa-tree>
         <div :if={@directories == []} class="text-sm text-base-content/60 text-center py-4">
@@ -217,25 +287,58 @@ defmodule XenoWeb.NoteComponents do
     """
   end
 
+  # this is the unused colocated hook for the directory tree selector
+  # changed to to use phx event because of testability issues
+  # Still think the hook would be more clean.
+  # Best solution would be to have a form-aware wa-tree component
+  def dirtree_hook(assigns) do
+    ~H"""
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".DirectoryTree">
+    export default {
+      mounted() {
+        const fieldName = this.el.dataset.fieldName;
+        this.el.querySelector('.dirtree-tree').addEventListener("wa-selection-change", e => {
+           if (e.detail.selection.length == 1) {
+             const selection = e.detail.selection[0].dataset.directoryId;
+             const input = this.el.querySelector('.dirtree-input');
+
+             if (input && selection) {
+               input.value = selection;
+               input.dispatchEvent(
+                 new Event("input", {bubbles: true})
+               )
+             }
+           }
+        })
+      }
+    }
+    </script>
+    """
+  end
+
+  # JS.set_attribute({"value", @directory.id}, to: "input[name='#{@name}']")
+  # |> JS.dispatch("input", to: "input[name='#{@name}']")
+
   # Renders a single selectable tree item with recursive children.
   # Private helper component for directory_tree_selector.
   attr :directory, :any, required: true
   attr :children, :list, default: []
   attr :selected_id, :string, default: nil
-  attr :on_select, :string, required: true
+  attr :name, :string, required: true
 
   defp selector_tree_item(assigns) do
     ~H"""
-    <wa-tree-item expanded>
+    <wa-tree-item expanded data-directory-id={@directory.id}>
       <wa-icon name="folder" slot="expand-icon"></wa-icon>
       <wa-icon name="folder-open" slot="collapse-icon"></wa-icon>
       <span
-        phx-click={@on_select}
         phx-value-id={@directory.id}
+        role="button"
         class={[
-          "cursor-pointer hover:text-primary transition-colors",
+          "select-directory cursor-pointer hover:text-primary transition-colors",
           @directory.id == @selected_id && "font-bold text-primary"
         ]}
+        phx-click="directory_id_changed"
       >
         {@directory.name}
       </span>
@@ -244,7 +347,7 @@ defmodule XenoWeb.NoteComponents do
         directory={child_dir}
         children={child_children}
         selected_id={@selected_id}
-        on_select={@on_select}
+        name={@name}
       />
     </wa-tree-item>
     """

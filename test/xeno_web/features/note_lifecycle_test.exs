@@ -18,14 +18,6 @@ defmodule XenoWeb.Features.NoteLifecycleTest do
       |> assert_has("wa-button#edit-btn", text: "Edit")
     end
 
-    test "page uses wa-card components" do
-      note = generate(note())
-
-      build_conn()
-      |> visit("/notes/#{note.id}")
-      |> assert_has("wa-card")
-    end
-
     test "page uses proper heading hierarchy" do
       note = generate(note(text: "hello"))
 

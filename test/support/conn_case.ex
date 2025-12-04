@@ -28,6 +28,7 @@ defmodule XenoWeb.ConnCase do
       import Plug.Conn
       import Phoenix.ConnTest
       import XenoWeb.ConnCase
+      import PhoenixTest
     end
   end
 

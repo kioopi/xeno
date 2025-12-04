@@ -70,7 +70,7 @@ defmodule Xeno.Content.Changes.NormalizeTagsTest do
           tags: nil
         })
 
-      assert is_nil(note.tags)
+      assert [] == note.tags
     end
 
     test "works on update action", %{directory: dir, note_type: type} do
